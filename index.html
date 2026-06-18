@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gana Tu Domingo</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
+:root{--navy:#0f1c2e;--navy-mid:#1a2e47;--navy-light:#243d5c;--gold:#f5c842;--gold-dark:#d4a825;--white:#fff;--green:#3ecf8e;--red:#f06565;--gray:#8ba0b8;--orange:#f0a045;--blue:#4da6ff}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--white);min-height:100vh;overflow-x:hidden}
+.screen{display:none !important;min-height:100vh}.screen.active{display:flex !important;flex-direction:column}
+#landing.active{align-items:center;justify-content:center;padding:40px 24px;background:radial-gradient(ellipse at 50% 0%,rgba(245,200,66,.12) 0%,transparent 65%),var(--navy);text-align:center}
+.coin-icon{width:88px;height:88px;background:var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:40px;box-shadow:0 0 40px rgba(245,200,66,.3);margin-bottom:28px;animation:pulse 3s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 40px rgba(245,200,66,.3)}50%{box-shadow:0 0 60px rgba(245,200,66,.5)}}
+.app-title{font-family:'Syne',sans-serif;font-weight:800;font-size:clamp(36px,8vw,56px);line-height:1;letter-spacing:-2px;margin-bottom:8px}.app-title span{color:var(--gold)}
+.app-sub{font-size:16px;color:var(--gray);margin-bottom:48px;max-width:320px}
+.role-cards{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;width:100%;max-width:480px}
+.role-card{flex:1;min-width:180px;background:var(--navy-mid);border:1.5px solid var(--navy-light);border-radius:20px;padding:32px 24px;cursor:pointer;transition:all .2s;text-align:center}
+.role-card:hover{border-color:var(--gold);transform:translateY(-3px);box-shadow:0 12px 40px rgba(245,200,66,.12)}
+.role-card .ri{font-size:36px;margin-bottom:12px}
+.role-card h3{font-family:'Syne',sans-serif;font-weight:700;font-size:18px;margin-bottom:4px}
+.role-card p{font-size:13px;color:var(--gray)}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.07);background:var(--navy);position:sticky;top:0;z-index:100}
+.topbar-title{font-family:'Syne',sans-serif;font-weight:800;font-size:18px;color:var(--gold)}
+.btn-back{background:none;border:none;color:var(--gray);cursor:pointer;font-size:22px;padding:4px}
+.badge{font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:1px}
+.badge-p{background:rgba(245,200,66,.15);color:var(--gold)}.badge-c{background:rgba(62,207,142,.15);color:var(--green)}
+.inner{padding:20px;max-width:640px;margin:0 auto;flex:1}
+.card{background:var(--navy-mid);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:20px;margin-bottom:16px}
+.card-t{font-family:'Syne',sans-serif;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:1px;color:var(--gray);margin-bottom:16px}
+.meter{background:var(--navy);border:1.5px solid var(--gold);border-radius:20px;padding:24px;margin-bottom:16px;position:relative;overflow:hidden}
+.meter::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(245,200,66,.06),transparent 70%);pointer-events:none}
+.meter-lbl{font-size:12px;color:var(--gray);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px}
+.meter-amt{font-family:'Syne',sans-serif;font-weight:800;font-size:48px;color:var(--gold);line-height:1;margin-bottom:4px}
+.meter-sub{font-size:13px;color:var(--gray);margin-bottom:16px}
+.pbar{background:var(--navy-light);border-radius:10px;height:12px;overflow:hidden;margin-bottom:8px}
+.pfill{height:100%;border-radius:10px;background:linear-gradient(90deg,var(--gold-dark),var(--gold));transition:width .6s cubic-bezier(.4,0,.2,1)}
+.meter-row{display:flex;justify-content:space-between;font-size:12px;color:var(--gray)}
+.tabs{display:flex;gap:4px;background:var(--navy-mid);border-radius:12px;padding:4px;margin-bottom:20px}
+.tab{flex:1;border:none;background:none;color:var(--gray);border-radius:8px;padding:8px 4px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s}
+.tab.on{background:var(--navy-light);color:var(--white)}
+.ccard{background:var(--navy-mid);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:16px 20px;margin-bottom:12px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:16px}
+.ccard:hover{border-color:var(--gold);transform:translateX(4px)}
+.cav{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;background:rgba(245,200,66,.12)}
+.cinfo{flex:1}.cname{font-family:'Syne',sans-serif;font-weight:700;font-size:16px}
+.cmeta{font-size:12px;color:var(--gray);margin-top:2px}
+.camt{font-family:'Syne',sans-serif;font-weight:800;font-size:20px;color:var(--gold)}
+.trow{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.05);flex-wrap:wrap}.trow:last-child{border-bottom:none}
+.tchk{width:28px;height:28px;border-radius:8px;border:2px solid var(--navy-light);background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all .2s;flex-shrink:0;color:var(--white)}
+.tchk.done{background:var(--green);border-color:var(--green)}.tchk.miss{background:rgba(240,101,101,.15);border-color:var(--red);color:var(--red)}
+.tinfo{flex:1;min-width:0}.tname{font-size:14px;font-weight:500}.tname.struck{text-decoration:line-through;color:var(--gray)}
+.tday{font-size:11px;color:var(--gray);margin-top:2px}
+.tval{font-family:'Syne',sans-serif;font-weight:700;font-size:13px;flex-shrink:0}.tval.pos{color:var(--green)}.tval.neg{color:var(--red)}
+.pzone{width:100%;border-radius:12px;height:110px;background:var(--navy);border:2px dashed var(--navy-light);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--gray);cursor:pointer;transition:border-color .15s;margin-top:8px;overflow:hidden;position:relative}
+.pzone:hover{border-color:var(--gold)}.pzone.has{border-style:solid;border-color:var(--green)}
+.pzone img{width:100%;height:100%;object-fit:cover;border-radius:10px}
+.pzone .pov{position:absolute;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;color:var(--white);font-size:12px;font-weight:600;opacity:0;transition:opacity .2s;border-radius:10px}
+.pzone:hover .pov{opacity:1}
+.gdisplay{display:flex;align-items:center;gap:16px;padding:16px;background:var(--navy);border-radius:12px}
+.gcircle{width:56px;height:56px;border-radius:50%;background:var(--navy-light);border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:20px;color:var(--gold);flex-shrink:0}
+.ginfo h4{font-size:14px;font-weight:600}.ginfo p{font-size:12px;color:var(--gray);margin-top:2px}
+.wstrip{display:flex;gap:6px;margin-bottom:20px;overflow-x:auto;padding-bottom:4px}
+.dpill{flex-shrink:0;width:44px;text-align:center;padding:8px 4px;border-radius:10px;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;background:var(--navy);border:1.5px solid var(--navy-light);color:var(--gray)}
+.dpill.today{border-color:var(--gold);color:var(--gold);background:rgba(245,200,66,.08)}
+.dpill.hasd{border-color:var(--green);background:rgba(62,207,142,.08);color:var(--green)}
+.dpill.ext{border-color:var(--orange);color:var(--orange);background:rgba(240,160,69,.08)}
+.dpill.sel{outline:2px solid var(--gold);outline-offset:1px}.dpill .dn{font-size:16px;font-weight:700;display:block;margin-top:2px}
+.fg{margin-bottom:16px}.fl{font-size:12px;color:var(--gray);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;display:block}
+.fi{width:100%;background:var(--navy);border:1.5px solid var(--navy-light);border-radius:10px;padding:11px 14px;color:var(--white);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:border-color .15s}
+.fi:focus{border-color:var(--gold)}select.fi option{background:var(--navy)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;border-radius:12px;padding:12px 24px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-g{background:var(--gold);color:var(--navy)}.btn-g:hover{background:var(--gold-dark);transform:translateY(-1px)}
+.btn-o{background:none;border:1.5px solid var(--navy-light);color:var(--white)}.btn-o:hover{border-color:var(--gold);color:var(--gold)}
+.btn-d{background:rgba(240,101,101,.15);border:1px solid var(--red);color:var(--red)}
+.btn-w{background:rgba(240,160,69,.12);border:1px solid var(--orange);color:var(--orange)}
+.btn-green{background:rgba(62,207,142,.12);border:1px solid var(--green);color:var(--green)}
+.btn-b{width:100%}.btn-s{padding:8px 16px;font-size:13px}
+.mov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;align-items:flex-end;justify-content:center}
+.mov.open{display:flex}
+.modal{background:var(--navy-mid);border-radius:24px 24px 0 0;padding:24px 20px 36px;width:100%;max-width:640px;max-height:85vh;overflow-y:auto;animation:sUp .25s ease}
+@keyframes sUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.mhandle{width:40px;height:4px;background:var(--navy-light);border-radius:2px;margin:0 auto 20px}
+.mtitle{font-family:'Syne',sans-serif;font-weight:800;font-size:20px;margin-bottom:20px}
+.row{display:flex;gap:12px}.row>*{flex:1}
+.empty{text-align:center;padding:32px 16px;color:var(--gray);font-size:14px}.empty .ei{font-size:36px;margin-bottom:8px}
+.shdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.cchoice{display:flex;gap:10px;margin-top:8px}
+.cbtn{flex:1;background:var(--navy);border:1.5px solid var(--navy-light);border-radius:12px;padding:14px 8px;color:var(--white);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;transition:all .15s}
+.cbtn:hover{border-color:var(--gold);color:var(--gold)}.cbtn .ci{font-size:26px}
+.photo-full{width:100%;border-radius:12px;max-height:60vh;object-fit:contain;background:var(--navy);margin-bottom:16px}
+#file-cam,#file-gal,#file-pay{display:none}
+.epick{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+.eopt{font-size:28px;cursor:pointer;padding:4px;border-radius:8px;border:2px solid transparent;transition:border-color .15s}.eopt.sel{border-color:var(--gold)}
+.dpicks{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.dpick{padding:6px 12px;border-radius:8px;border:1.5px solid var(--navy-light);cursor:pointer;font-size:13px;font-weight:600;transition:all .15s;color:var(--gray)}.dpick.on{background:rgba(245,200,66,.15);border-color:var(--gold);color:var(--gold)}
+.cpicks{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.cpick{padding:5px 12px;border-radius:20px;border:1.5px solid var(--navy-light);cursor:pointer;font-size:13px;font-weight:600;transition:all .15s;color:var(--gray);display:flex;align-items:center;gap:4px}.cpick.on{background:rgba(62,207,142,.12);border-color:var(--green);color:var(--green)}
+.ext-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--orange);background:rgba(240,160,69,.1);padding:3px 8px;border-radius:6px;margin-left:6px}
+.ext-timer{font-size:11px;color:var(--orange);margin-top:2px}
+/* pay status */
+.pay-status{display:flex;align-items:center;gap:12px;padding:16px;background:var(--navy);border-radius:12px}
+.pay-icon{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
+.pay-icon.paid{background:rgba(62,207,142,.12)}.pay-icon.pending{background:rgba(240,101,101,.12)}
+.pay-info{flex:1}.pay-info h4{font-size:14px;font-weight:600}.pay-info p{font-size:12px;color:var(--gray);margin-top:2px}
+/* history row */
+.hist-row{display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.hist-row:last-child{border-bottom:none}
+.hist-week{flex:1}.hist-week h4{font-size:14px;font-weight:600}.hist-week p{font-size:11px;color:var(--gray);margin-top:2px}
+.hist-amt{font-family:'Syne',sans-serif;font-weight:800;font-size:16px;color:var(--gold);text-align:right}
+.hist-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:12px;text-transform:uppercase;letter-spacing:.5px;margin-top:4px;display:inline-block}
+.hist-badge.paid{background:rgba(62,207,142,.12);color:var(--green)}.hist-badge.pend{background:rgba(240,101,101,.12);color:var(--red)}
+/* PIN */
+.pin-wrap{text-align:center;padding:8px 0}
+.pin-dots{display:flex;gap:12px;justify-content:center;margin:20px 0 8px}
+.pin-dot{width:18px;height:18px;border-radius:50%;border:2px solid var(--navy-light);transition:all .2s}
+.pin-dot.filled{background:var(--gold);border-color:var(--gold)}
+.pin-dot.wrong{border-color:var(--red);background:var(--red);animation:shake .4s}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:260px;margin:0 auto}
+.pin-key{background:var(--navy);border:1.5px solid var(--navy-light);border-radius:14px;padding:16px;font-family:'Syne',sans-serif;font-weight:700;font-size:22px;color:var(--white);cursor:pointer;transition:all .15s;text-align:center}
+.pin-key:hover{border-color:var(--gold);color:var(--gold)}.pin-key:active{background:var(--navy-light)}
+.pin-key.del{font-size:16px;color:var(--gray)}
+.pin-error{font-size:13px;color:var(--red);margin-top:8px;min-height:20px}
+.pin-label{font-size:13px;color:var(--gray);margin-bottom:4px}
+.pin-icon{font-size:40px;margin-bottom:12px}
+</style>
+</head>
+<body>
+
+<div id="landing" class="screen active">
+  <div class="coin-icon">🪙</div>
+  <h1 class="app-title">Gana Tu<br><span>Domingo</span></h1>
+  <p class="app-sub">Cumple tus tareas, sube tu evidencia y gana tu domingo esta semana.</p>
+  <div class="role-cards">
+    <div class="role-card" id="go-parent"><div class="ri">👨‍👩‍👧</div><h3>Soy Papá / Mamá</h3><p>Configurar tareas, hijos y domingos</p></div>
+    <div class="role-card" id="go-child"><div class="ri">⭐</div><h3>Soy Hijo</h3><p>Ver mis tareas y cuánto llevo ganado</p></div>
+  </div>
+</div>
+
+<div id="parent" class="screen">
+  <div class="topbar"><button class="btn-back" id="parent-back">←</button><div class="topbar-title">Panel Familiar</div><span class="badge badge-p">Papás</span></div>
+  <div class="inner">
+    <div class="tabs" id="parent-tabs">
+      <button class="tab on" data-ptab="hijos">👶 Hijos</button>
+      <button class="tab" data-ptab="tareas">📋 Tareas</button>
+      <button class="tab" data-ptab="historial">📊 Historial</button>
+      <button class="tab" data-ptab="config">⚙️</button>
+    </div>
+    <div id="pt-hijos"><div class="shdr"><span class="card-t" style="margin:0">Esta semana</span><button class="btn btn-g btn-s" id="btn-add-child">+ Hijo</button></div><div id="children-list"></div></div>
+    <div id="pt-tareas" style="display:none"><div class="shdr"><span class="card-t" style="margin:0">Tareas</span><button class="btn btn-g btn-s" id="btn-add-task">+ Tarea</button></div><div id="tasks-list"></div></div>
+    <div id="pt-historial" style="display:none"><div class="card-t">Historial de semanas</div><div id="hist-parent"></div></div>
+    <div id="pt-config" style="display:none">
+      <div class="card"><div class="card-t">Domingo base global</div><div class="fg" style="margin:0"><label class="fl">Monto ($)</label><input class="fi" type="number" id="cfg-base" value="1000"></div></div>
+      <div class="card"><div class="card-t">Factor calificaciones</div><p style="font-size:13px;color:var(--gray);margin-bottom:12px">Base = <strong style="color:var(--white)">8.0</strong></p><div class="fg" style="margin:0"><label class="fl">Promedio base</label><input class="fi" type="number" id="cfg-grade" value="8" min="0" max="10" step="0.1"></div></div>
+      <div class="card"><div class="card-t">Cerrar semana</div><p style="font-size:13px;color:var(--gray);margin-bottom:12px">Archiva la semana actual en el historial y limpia tareas completadas para empezar nueva semana.</p><button class="btn btn-w btn-b" id="btn-close-week">📦 Cerrar semana actual</button></div>
+      <div class="card"><div class="card-t">🔒 Contraseña de papás</div><div class="fg"><label class="fl">Nueva contraseña (4 dígitos)</label><input class="fi" id="cfg-parent-pin" type="password" maxlength="4" placeholder="••••" inputmode="numeric"></div><button class="btn btn-g btn-b" id="btn-save-parent-pin">Guardar contraseña</button></div>
+    </div>
+  </div>
+</div>
+
+<div id="pchild" class="screen">
+  <div class="topbar"><button class="btn-back" id="pchild-back">←</button><div class="topbar-title" id="pchild-name">Hijo</div><span class="badge badge-p">Papás</span></div>
+  <div class="inner">
+    <div class="meter"><div class="meter-lbl">Ganado esta semana</div><div class="meter-amt" id="pc-amt">$0</div><div class="meter-sub" id="pc-sub">de $1,000</div><div class="pbar"><div class="pfill" id="pc-bar" style="width:0%"></div></div><div class="meter-row"><span id="pc-pct">0%</span><span>Esta semana</span></div></div>
+    <div class="card"><div class="card-t">💰 Pago del domingo</div><div id="pc-pay"></div></div>
+    <div class="card"><div class="card-t">Calificación escolar</div><div class="fg"><label class="fl">Promedio actual</label><input class="fi" type="number" id="pc-grade" min="0" max="10" step="0.1" placeholder="Ej: 8.5"></div><p style="font-size:12px;color:var(--gray)" id="pc-grade-fx">Ingresa calificación.</p></div>
+    <div class="card"><div class="card-t">Reactivar días</div><p style="font-size:13px;color:var(--gray);margin-bottom:12px">Permite subir evidencia de un día pasado por 24h.</p><div id="pc-days-extend"></div></div>
+    <div class="card"><div class="card-t">Tareas y evidencias</div><div id="pc-tasks"></div></div>
+    <div class="card"><div class="card-t">Configuración</div><div class="fg"><label class="fl">Domingo base personalizado ($)</label><input class="fi" type="number" id="pc-custom-base" placeholder="Vacío = global"></div><div class="fg"><label class="fl">🔒 Contraseña del hijo (4 dígitos)</label><input class="fi" id="pc-child-pin" type="password" maxlength="4" placeholder="••••" inputmode="numeric"></div><button class="btn btn-g btn-b" id="pc-save-child-pin" style="margin-bottom:12px">Guardar contraseña hijo</button><button class="btn btn-d btn-b" id="pc-remove">🗑 Eliminar hijo</button></div>
+  </div>
+</div>
+
+<div id="child-sel" class="screen">
+  <div class="topbar"><button class="btn-back" id="child-sel-back">←</button><div class="topbar-title">¿Quién eres?</div><span class="badge badge-c">Hijos</span></div>
+  <div class="inner" id="child-sel-list"></div>
+</div>
+
+<div id="child-det" class="screen">
+  <div class="topbar"><button class="btn-back" id="child-det-back">←</button><div class="topbar-title" id="cd-title">Mi Domingo</div><span class="badge badge-c">Hijos</span></div>
+  <div class="inner">
+    <div class="meter"><div class="meter-lbl">Llevas ganado esta semana</div><div class="meter-amt" id="cd-amt">$0</div><div class="meter-sub" id="cd-sub">de $1,000 posibles</div><div class="pbar"><div class="pfill" id="cd-bar" style="width:0%"></div></div><div class="meter-row"><span id="cd-pct">0%</span><span>Lun – Dom</span></div></div>
+    <div class="card"><div class="card-t">💰 Estatus de pago</div><div id="cd-pay"></div></div>
+    <div class="card"><div class="card-t">Calificación escolar</div><div class="gdisplay"><div class="gcircle" id="cd-gc">–</div><div class="ginfo"><h4 id="cd-gl">Sin calificación</h4><p id="cd-ge">Base 8.0</p></div></div></div>
+    <div class="card"><div class="card-t">Mis tareas</div><div class="wstrip" id="cd-strip"></div><div id="cd-tasks"></div></div>
+    <div class="card"><div class="card-t">📊 Mi historial</div><div id="cd-hist"></div></div>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div class="mov" id="m-child"><div class="modal"><div class="mhandle"></div><div class="mtitle">Agregar hijo</div>
+  <div class="fg"><label class="fl">Nombre</label><input class="fi" id="nc-name" placeholder="Ej: Diego"></div>
+  <div class="fg"><label class="fl">Edad</label><input class="fi" id="nc-age" type="number" placeholder="Ej: 12"></div>
+  <div class="fg"><label class="fl">Emoji</label><div class="epick" id="epick"></div></div>
+  <div class="fg"><label class="fl">Contraseña del hijo (4 dígitos)</label><input class="fi" id="nc-pin" type="password" maxlength="4" placeholder="Ej: 1234" inputmode="numeric" pattern="[0-9]*"></div>
+  <div class="row"><button class="btn btn-o" id="mc-cancel">Cancelar</button><button class="btn btn-g" id="mc-save">Agregar</button></div>
+</div></div>
+
+<div class="mov" id="m-task"><div class="modal"><div class="mhandle"></div><div class="mtitle">Nueva tarea</div>
+  <div class="fg"><label class="fl">Nombre</label><input class="fi" id="nt-name" placeholder="Ej: Tender la cama"></div>
+  <div class="fg"><label class="fl">Asignar a</label><div class="cpicks" id="nt-children"></div></div>
+  <div class="fg"><label class="fl">Días</label><div class="dpicks" id="nt-days"></div></div>
+  <div class="fg"><label class="fl">Tipo</label><select class="fi" id="nt-type"><option value="fixed">Fija</option><option value="bonus">Bono extra</option></select></div>
+  <div class="fg"><label class="fl">Valor ($)</label><input class="fi" type="number" id="nt-val" placeholder="Ej: 143"></div>
+  <div class="fg"><label class="fl">¿Requiere foto?</label><select class="fi" id="nt-photo"><option value="yes">Sí</option><option value="no">No</option></select></div>
+  <div class="row"><button class="btn btn-o" id="mt-cancel">Cancelar</button><button class="btn btn-g" id="mt-save">Agregar</button></div>
+</div></div>
+
+<div class="mov" id="m-photo"><div class="modal"><div class="mhandle"></div><div class="mtitle">Subir evidencia 📷</div>
+  <p style="font-size:13px;color:var(--gray);margin-bottom:16px" id="mp-task">Tarea</p>
+  <div class="cchoice"><button class="cbtn" id="mp-cam"><span class="ci">📸</span>Tomar foto</button><button class="cbtn" id="mp-gal"><span class="ci">🖼️</span>Galería</button></div>
+  <div style="margin-top:14px"><button class="btn btn-o btn-b" id="mp-cancel">Cancelar</button></div>
+</div></div>
+
+<div class="mov" id="m-viewer"><div class="modal"><div class="mhandle"></div><div class="mtitle" id="mv-title">Evidencia</div>
+  <img class="photo-full" id="mv-img" src="" alt=""><p style="font-size:12px;color:var(--gray);margin-bottom:16px" id="mv-meta"></p>
+  <div id="mv-actions"></div><button class="btn btn-o btn-b" id="mv-close" style="margin-top:10px">Cerrar</button>
+</div></div>
+
+<input type="file" id="file-cam" accept="image/*" capture="environment">
+<input type="file" id="file-gal" accept="image/*">
+<input type="file" id="file-pay" accept="image/*">
+
+<!-- PIN Modal -->
+<div class="mov" id="m-pin"><div class="modal">
+  <div class="mhandle"></div>
+  <div class="pin-wrap">
+    <div class="pin-icon" id="pin-icon">🔒</div>
+    <div class="mtitle" id="pin-title" style="text-align:center">Ingresa contraseña</div>
+    <div class="pin-label" id="pin-label">4 dígitos</div>
+    <div class="pin-dots" id="pin-dots"><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div></div>
+    <div class="pin-error" id="pin-error"></div>
+    <div class="pin-pad">
+      <div class="pin-key" data-pk="1">1</div><div class="pin-key" data-pk="2">2</div><div class="pin-key" data-pk="3">3</div>
+      <div class="pin-key" data-pk="4">4</div><div class="pin-key" data-pk="5">5</div><div class="pin-key" data-pk="6">6</div>
+      <div class="pin-key" data-pk="7">7</div><div class="pin-key" data-pk="8">8</div><div class="pin-key" data-pk="9">9</div>
+      <div class="pin-key del" data-pk="cancel">✕</div><div class="pin-key" data-pk="0">0</div><div class="pin-key del" data-pk="del">⌫</div>
+    </div>
+  </div>
+</div></div>
+
+<script>
+var DAYS=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'],EMOJIS=['😊','😎','🦊','🐯','🦁','🐸','⭐','🚀'];
+var TODAY_IDX=(new Date().getDay()+6)%7;
+var S={
+  globalBase:1000,baseGrade:8,weekNum:1,parentPin:'1234',
+  children:[{id:1,name:'Diego',age:12,emoji:'😎',customBase:null,grade:null,log:{},ext:{},paid:false,payProof:null,payDate:null,pin:'0000'}],
+  tasks:[
+    {id:1,name:'Tender la cama',childIds:[1],days:[0,1,2,3,4,5,6],type:'fixed',value:143,photo:true},
+    {id:2,name:'Sacar la basura',childIds:[1],days:[3],type:'fixed',value:200,photo:false},
+    {id:3,name:'Lavar el carro',childIds:[1],days:[1],type:'bonus',value:300,photo:true}
+  ],
+  history:[], // [{weekNum,weekLabel,data:{childId:{name,emoji,earned,max,grade,paid,payProof,payDate}}}]
+  nid:2,ntid:4,curChild:null,pcdChild:null,
+  selEmoji:'😊',selDays:[],selChildIds:[],pendingKey:null,filterDay:null,payTarget:null
+};
+
+function goTo(id){document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active')});document.getElementById(id).classList.add('active')}
+function openM(id){document.getElementById(id).classList.add('open')}
+function closeM(id){document.getElementById(id).classList.remove('open')}
+document.addEventListener('click',function(e){if(e.target.classList.contains('mov')&&e.target.classList.contains('open'))e.target.classList.remove('open')});
+
+function tasksFor(cid){return S.tasks.filter(function(t){return t.childIds.indexOf(cid)>=0})}
+function canAct(c,di){if(di===TODAY_IDX)return true;if(di>TODAY_IDX)return false;var exp=c.ext[di];if(exp&&exp>Date.now())return true;return false}
+function extRemain(c,di){var exp=c.ext[di];if(!exp)return '';var left=exp-Date.now();if(left<=0)return '';return Math.floor(left/3600000)+'h '+Math.floor((left%3600000)/60000)+'m'}
+
+function calcEarned(c){
+  var base=c.customBase!=null?c.customBase:S.globalBase,bg=S.baseGrade||8;
+  var gm=(c.grade!=null&&c.grade!=='')?parseFloat(c.grade)/bg:1;
+  var myT=tasksFor(c.id),fixed=myT.filter(function(t){return t.type==='fixed'}),totalFV=0;
+  fixed.forEach(function(t){totalFV+=t.days.length*t.value});
+  var earned=0;
+  if(totalFV>0){fixed.forEach(function(t){t.days.forEach(function(di){var k=t.id+'_'+di,e=c.log[k],done=e&&e.done&&(!t.photo||e.hasPhoto);if(done)earned+=(t.value/totalFV)*base*gm;else if(di>TODAY_IDX)earned+=(t.value/totalFV)*base*gm})})}
+  else earned=base*gm;
+  myT.filter(function(t){return t.type==='bonus'}).forEach(function(t){t.days.forEach(function(di){var k=t.id+'_'+di,e=c.log[k];if(e&&e.done&&(!t.photo||e.hasPhoto))earned+=t.value})});
+  return Math.max(0,Math.round(earned));
+}
+function calcMax(c){var base=c.customBase!=null?c.customBase:S.globalBase,bg=S.baseGrade||8,gm=(c.grade!=null&&c.grade!=='')?parseFloat(c.grade)/bg:1,bm=0;tasksFor(c.id).filter(function(t){return t.type==='bonus'}).forEach(function(t){bm+=t.days.length*t.value});return Math.round(base*gm+bm)}
+function weekLabel(){var n=new Date(),mon=new Date(n);mon.setDate(n.getDate()-((n.getDay()+6)%7));var sun=new Date(mon);sun.setDate(mon.getDate()+6);var fmt=function(d){return d.getDate()+'/'+(d.getMonth()+1)};return fmt(mon)+' – '+fmt(sun)}
+
+// ═══ PARENT ═══
+function renderParent(){renderChildren();renderTasks();renderHistParent();document.getElementById('cfg-base').value=S.globalBase;document.getElementById('cfg-grade').value=S.baseGrade}
+function renderChildren(){
+  var el=document.getElementById('children-list');
+  if(!S.children.length){el.innerHTML='<div class="empty"><div class="ei">👶</div>Agrega el primer hijo</div>';return}
+  el.innerHTML=S.children.map(function(c){var e=calcEarned(c),mx=calcMax(c),pct=mx>0?Math.round(e/mx*100):0;
+    var payBadge=c.paid?'<span class="hist-badge paid">Pagado ✓</span>':'<span class="hist-badge pend">Pendiente</span>';
+    return '<div class="ccard" data-cid="'+c.id+'"><div class="cav">'+c.emoji+'</div><div class="cinfo"><div class="cname">'+c.name+'</div><div class="cmeta">'+c.age+' años · '+pct+'% · '+payBadge+'</div></div><div class="camt">$'+e.toLocaleString()+'</div></div>'}).join('');
+}
+function renderTasks(){
+  var el=document.getElementById('tasks-list');
+  if(!S.tasks.length){el.innerHTML='<div class="empty"><div class="ei">📋</div>Agrega la primera tarea</div>';return}
+  el.innerHTML=S.tasks.map(function(t){var ds=t.days.map(function(d){return DAYS[d]}).join(', '),ib=t.type==='bonus',cn=t.childIds.map(function(cid){var ch=S.children.find(function(x){return x.id===cid});return ch?(ch.emoji+' '+ch.name):'?'}).join(', ');
+    return '<div class="card" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div style="font-weight:600;font-size:14px">'+t.name+'</div><div style="font-size:12px;color:var(--gray);margin-top:4px">'+ds+' · <span style="color:'+(ib?'var(--green)':'var(--gold)')+'">'+(ib?'Bono':'Fija')+'</span></div><div style="font-size:11px;color:var(--green);margin-top:3px">👤 '+cn+'</div></div><div style="text-align:right"><div style="font-family:Syne,sans-serif;font-weight:800;color:'+(ib?'var(--green)':'var(--gold)')+'">$'+t.value+'</div><div style="font-size:11px;color:var(--gray)">'+(t.photo?'📷':'')+'</div></div></div><button class="btn btn-d" data-rmtask="'+t.id+'" style="margin-top:10px;padding:6px 14px;font-size:12px">Eliminar</button></div>'}).join('');
+}
+function renderHistParent(){
+  var el=document.getElementById('hist-parent');
+  if(!S.history.length){el.innerHTML='<div class="empty"><div class="ei">📊</div>Sin historial aún. Cierra una semana para guardarla aquí.</div>';return}
+  el.innerHTML=S.history.slice().reverse().map(function(w){
+    var rows='';var childIds=Object.keys(w.data);
+    childIds.forEach(function(cid){var d=w.data[cid];
+      rows+='<div class="hist-row"><div class="cav" style="width:36px;height:36px;font-size:16px">'+d.emoji+'</div><div class="hist-week"><h4>'+d.name+'</h4><p>Ganó $'+d.earned.toLocaleString()+' de $'+d.max.toLocaleString()+(d.grade!=null?' · Calif: '+d.grade:'')+'</p></div><div style="text-align:right"><div class="hist-amt">$'+d.earned.toLocaleString()+'</div><div class="hist-badge '+(d.paid?'paid':'pend')+'">'+(d.paid?'Pagado ✓':'Pendiente')+'</div></div></div>'});
+    return '<div class="card"><div class="card-t">Semana '+w.weekNum+' · '+w.weekLabel+'</div>'+rows+'</div>'}).join('');
+}
+
+// tabs
+document.getElementById('parent-tabs').addEventListener('click',function(e){var tab=e.target.closest('.tab');if(!tab)return;var w=tab.getAttribute('data-ptab');document.querySelectorAll('#parent-tabs .tab').forEach(function(t){t.classList.remove('on')});tab.classList.add('on');
+  ['hijos','tareas','historial','config'].forEach(function(t){document.getElementById('pt-'+t).style.display=t===w?'':'none'})});
+document.getElementById('children-list').addEventListener('click',function(e){var card=e.target.closest('.ccard');if(!card)return;openPChildDetail(parseInt(card.getAttribute('data-cid')))});
+document.getElementById('tasks-list').addEventListener('click',function(e){var btn=e.target.closest('[data-rmtask]');if(!btn)return;S.tasks=S.tasks.filter(function(t){return t.id!==parseInt(btn.getAttribute('data-rmtask'))});renderTasks()});
+document.getElementById('cfg-base').addEventListener('input',function(){S.globalBase=parseFloat(this.value)||1000});
+document.getElementById('cfg-grade').addEventListener('input',function(){S.baseGrade=parseFloat(this.value)||8});
+
+// Close week
+document.getElementById('btn-close-week').addEventListener('click',function(){
+  if(!confirm('¿Cerrar la semana actual y archivarla en el historial?'))return;
+  var wk={weekNum:S.weekNum,weekLabel:weekLabel(),data:{}};
+  S.children.forEach(function(c){wk.data[c.id]={name:c.name,emoji:c.emoji,earned:calcEarned(c),max:calcMax(c),grade:c.grade,paid:c.paid,payProof:c.payProof,payDate:c.payDate}});
+  S.history.push(wk);S.weekNum++;
+  // Reset children logs/payments
+  S.children.forEach(function(c){c.log={};c.ext={};c.paid=false;c.payProof=null;c.payDate=null});
+  renderParent();alert('Semana cerrada y archivada.');
+});
+
+// ═══ PARENT CHILD DETAIL ═══
+function openPChildDetail(id){
+  var c=S.children.find(function(x){return x.id===id});if(!c)return;S.pcdChild=id;
+  document.getElementById('pchild-name').textContent=c.emoji+' '+c.name;
+  document.getElementById('pc-grade').value=c.grade!=null?c.grade:'';
+  document.getElementById('pc-custom-base').value=c.customBase!=null?c.customBase:'';
+  renderPCAll(c);goTo('pchild');
+}
+function renderPCAll(c){renderPCMeter(c);renderPCPay(c);renderPCExtend(c);renderPCTasks(c)}
+function renderPCMeter(c){var e=calcEarned(c),mx=calcMax(c),base=c.customBase!=null?c.customBase:S.globalBase,pct=mx>0?Math.min(100,Math.round(e/mx*100)):0;document.getElementById('pc-amt').textContent='$'+e.toLocaleString();document.getElementById('pc-sub').textContent='de $'+base.toLocaleString()+' base';document.getElementById('pc-bar').style.width=pct+'%';document.getElementById('pc-pct').textContent=pct+'%'}
+
+function renderPCPay(c){
+  var el=document.getElementById('pc-pay'),e=calcEarned(c);
+  var html='<div class="pay-status"><div class="pay-icon '+(c.paid?'paid':'pending')+'">'+(c.paid?'✅':'⏳')+'</div><div class="pay-info"><h4>'+(c.paid?'Pagado':'Pendiente de pago')+'</h4><p>Monto: $'+e.toLocaleString()+'</p></div></div>';
+  if(c.paid&&c.payProof){
+    html+='<div class="pzone has" id="pc-pay-proof" style="height:90px;margin-top:12px"><img src="'+c.payProof+'" alt="comprobante"><div class="pov">🔍 Ver comprobante</div></div>';
+    if(c.payDate){var d=new Date(c.payDate);html+='<p style="font-size:11px;color:var(--gray);margin-top:6px">Pagado el '+d.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'})+'</p>'}
+  }
+  html+='<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">';
+  if(!c.paid){
+    html+='<button class="btn btn-green btn-b" id="pc-mark-paid">✅ Marcar como pagado</button>';
+    html+='<button class="btn btn-g btn-b" id="pc-pay-upload">📷 Pagar y subir comprobante</button>';
+  } else {
+    html+='<button class="btn btn-d btn-b" id="pc-unmark-paid">↩ Desmarcar pago</button>';
+    if(!c.payProof) html+='<button class="btn btn-g btn-b" id="pc-pay-upload">📷 Subir comprobante</button>';
+  }
+  html+='</div>';
+  el.innerHTML=html;
+}
+
+function renderPCExtend(c){
+  var el=document.getElementById('pc-days-extend'),html='<div style="display:flex;gap:8px;flex-wrap:wrap">';
+  DAYS.forEach(function(d,i){if(i>=TODAY_IDX){html+='<span class="dpick" style="opacity:.4;cursor:default">'+d+'</span>';return}var isE=c.ext[i]&&c.ext[i]>Date.now();html+='<span class="dpick '+(isE?'on':'')+'" data-extday="'+i+'">'+d+(isE?' ✓':'')+'</span>'});
+  html+='</div>';DAYS.forEach(function(d,i){var rem=extRemain(c,i);if(rem)html+='<div class="ext-timer" style="margin-top:6px">⏱ '+d+': '+rem+'</div>'});
+  el.innerHTML=html;
+}
+
+function renderPCTasks(c){
+  var el=document.getElementById('pc-tasks'),myT=tasksFor(c.id);
+  if(!myT.length){el.innerHTML='<div class="empty"><div class="ei">📋</div>Sin tareas para '+c.name+'</div>';return}
+  var html='';
+  myT.forEach(function(t){t.days.forEach(function(di){
+    var k=t.id+'_'+di,entry=c.log[k]||{},isPast=di<TODAY_IDX,isToday=di===TODAY_IDX,isExt=canAct(c,di)&&!isToday,done=entry.done&&(!t.photo||entry.hasPhoto),hasP=entry.hasPhoto&&entry.photoData;
+    var extLbl=isExt?'<span class="ext-badge">🔓</span>':'';
+    html+='<div class="trow" style="flex-wrap:wrap;gap:8px"><div style="display:flex;align-items:center;gap:12px;width:100%"><div class="tchk '+(done?'done':((isPast&&!isExt)?'miss':''))+'">'+
+      (done?'✓':((isPast&&!isExt)?'✗':''))+'</div><div class="tinfo"><div class="tname '+(done?'struck':'')+'">'+t.name+extLbl+'</div><div class="tday">'+DAYS[di]+' · '+(t.type==='bonus'?'Bono':'Fija')+(t.photo?' 📷':'')+'</div></div><div class="tval '+(t.type==='bonus'?'pos':(done?'pos':((isPast&&!isExt)?'neg':'')))+'">'+
+      (t.type==='bonus'?(done?'+$'+t.value:'–'):(done?'✓':((isPast&&!isExt)?'-$'+t.value:'⏳')))+'</div></div>';
+    if(hasP)html+='<div style="width:100%;padding-left:40px"><div class="pzone has" data-viewkey="'+k+'" data-viewchild="'+c.id+'" data-viewname="'+t.name+'" data-viewdel="1" style="height:90px"><img src="'+entry.photoData+'" alt=""><div class="pov">🔍 · 🗑</div></div></div>';
+    else if(t.photo&&!done&&isPast&&!isExt)html+='<div style="width:100%;padding-left:40px;font-size:12px;color:var(--red)">Sin evidencia</div>';
+    html+='</div>'})});
+  el.innerHTML=html;
+}
+
+// Events parent child
+document.getElementById('pc-grade').addEventListener('input',function(){var c=S.children.find(function(x){return x.id===S.pcdChild});if(!c)return;c.grade=this.value===''?null:parseFloat(this.value);var bg=S.baseGrade||8;document.getElementById('pc-grade-fx').textContent=c.grade!=null?(Math.round((c.grade/bg-1)*100)>=0?'+':'')+(Math.round((c.grade/bg-1)*100))+'%':'Ingresa calificación.';renderPCMeter(c)});
+document.getElementById('pc-custom-base').addEventListener('input',function(){var c=S.children.find(function(x){return x.id===S.pcdChild});if(!c)return;c.customBase=this.value===''?null:parseFloat(this.value);renderPCMeter(c)});
+document.getElementById('pc-remove').addEventListener('click',function(){if(!confirm('¿Eliminar?'))return;S.children=S.children.filter(function(c){return c.id!==S.pcdChild});S.tasks.forEach(function(t){t.childIds=t.childIds.filter(function(id){return id!==S.pcdChild})});goTo('parent');renderParent()});
+document.getElementById('pc-days-extend').addEventListener('click',function(e){var dp=e.target.closest('[data-extday]');if(!dp)return;var c=S.children.find(function(x){return x.id===S.pcdChild});if(!c)return;var di=parseInt(dp.getAttribute('data-extday'));if(di>=TODAY_IDX)return;var isE=c.ext[di]&&c.ext[di]>Date.now();if(isE)delete c.ext[di];else c.ext[di]=Date.now()+86400000;renderPCAll(c)});
+document.getElementById('pc-tasks').addEventListener('click',function(e){var pz=e.target.closest('[data-viewkey]');if(!pz)return;showPhoto(pz.getAttribute('data-viewkey'),parseInt(pz.getAttribute('data-viewchild')),pz.getAttribute('data-viewname'),pz.getAttribute('data-viewdel')==='1')});
+
+// Payment events (delegated on pc-pay)
+document.getElementById('pc-pay').addEventListener('click',function(e){
+  var c=S.children.find(function(x){return x.id===S.pcdChild});if(!c)return;
+  if(e.target.closest('#pc-mark-paid')){c.paid=true;c.payDate=new Date().toISOString();renderPCAll(c);return}
+  if(e.target.closest('#pc-unmark-paid')){c.paid=false;c.payProof=null;c.payDate=null;renderPCAll(c);return}
+  if(e.target.closest('#pc-pay-upload')){S.payTarget=c.id;document.getElementById('file-pay').click();return}
+  if(e.target.closest('#pc-pay-proof')){
+    if(!c.payProof)return;
+    document.getElementById('mv-title').textContent='💰 Comprobante de pago';
+    document.getElementById('mv-img').src=c.payProof;
+    document.getElementById('mv-meta').textContent=c.payDate?'Pagado el '+new Date(c.payDate).toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'}):'';
+    document.getElementById('mv-actions').innerHTML='<button class="btn btn-d btn-b" id="mv-del-pay">🗑 Eliminar comprobante</button>';
+    document.getElementById('mv-del-pay').addEventListener('click',function(){c.payProof=null;closeM('m-viewer');renderPCAll(c)});
+    openM('m-viewer');
+  }
+});
+
+// Payment file upload
+document.getElementById('file-pay').addEventListener('change',function(){
+  var file=this.files[0];this.value='';if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    var c=S.children.find(function(x){return x.id===S.payTarget});if(!c)return;
+    c.paid=true;c.payProof=ev.target.result;c.payDate=new Date().toISOString();
+    renderPCAll(c);
+  };reader.readAsDataURL(file);
+});
+
+document.getElementById('pchild-back').addEventListener('click',function(){goTo('parent');renderParent()});
+
+// ═══ CHILD SELECTOR ═══
+function renderChildSel(){
+  var el=document.getElementById('child-sel-list');
+  if(!S.children.length){el.innerHTML='<div class="empty"><div class="ei">👶</div>Pídele a papá que te agregue.</div>';return}
+  el.innerHTML=S.children.map(function(c){var e=calcEarned(c);return '<div class="ccard" data-csid="'+c.id+'"><div class="cav" style="background:rgba(62,207,142,.1)">'+c.emoji+'</div><div class="cinfo"><div class="cname">'+c.name+'</div><div class="cmeta">'+c.age+' años</div></div><div class="camt" style="color:var(--green)">$'+e.toLocaleString()+'</div></div>'}).join('');
+}
+// child-sel click handled in PIN NAV section below
+
+// ═══ CHILD DETAIL ═══
+function openChildDetail(id){var c=S.children.find(function(x){return x.id===id});if(!c)return;S.curChild=id;S.filterDay=null;document.getElementById('cd-title').textContent=c.emoji+' '+c.name;renderCD(c);goTo('child-det')}
+
+function renderCD(c){
+  var e=calcEarned(c),mx=calcMax(c),pct=mx>0?Math.min(100,Math.round(e/mx*100)):0;
+  document.getElementById('cd-amt').textContent='$'+e.toLocaleString();
+  document.getElementById('cd-sub').textContent='de $'+mx.toLocaleString()+' posibles';
+  document.getElementById('cd-bar').style.width=pct+'%';document.getElementById('cd-pct').textContent=pct+'%';
+  // Pay status
+  var payEl=document.getElementById('cd-pay');
+  var payHtml='<div class="pay-status"><div class="pay-icon '+(c.paid?'paid':'pending')+'">'+(c.paid?'✅':'⏳')+'</div><div class="pay-info"><h4>Semana actual: '+(c.paid?'¡Pagado!':'Pendiente de pago')+'</h4><p>Monto: $'+e.toLocaleString()+'</p></div></div>';
+  if(c.paid&&c.payProof){
+    payHtml+='<div class="pzone has" data-cd-proof="1" style="height:80px;margin-top:10px"><img src="'+c.payProof+'" alt=""><div class="pov">🔍 Ver comprobante</div></div>';
+    if(c.payDate){var d=new Date(c.payDate);payHtml+='<p style="font-size:11px;color:var(--gray);margin-top:4px">Pagado el '+d.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'})+'</p>'}
+  }
+  payEl.innerHTML=payHtml;
+  // Grade
+  var bg=S.baseGrade||8,gc=document.getElementById('cd-gc'),gl=document.getElementById('cd-gl'),ge=document.getElementById('cd-ge');
+  if(c.grade!=null&&c.grade!==''){var g=parseFloat(c.grade);gc.textContent=g.toFixed(1);gc.style.borderColor=g>=bg?'var(--green)':'var(--red)';gc.style.color=g>=bg?'var(--green)':'var(--red)';var diff=Math.round((g/bg-1)*100);gl.textContent=g>=bg?'¡Arriba del promedio!':'Abajo del promedio';ge.textContent=(diff>=0?'+':'')+diff+'%'}
+  else{gc.textContent='–';gc.style.borderColor='var(--gold)';gc.style.color='var(--gold)';gl.textContent='Sin calificación';ge.textContent='Base '+bg}
+  // Strip
+  document.getElementById('cd-strip').innerHTML=DAYS.map(function(d,i){var hasDone=tasksFor(c.id).some(function(t){return t.days.indexOf(i)>=0&&c.log[t.id+'_'+i]&&c.log[t.id+'_'+i].done});var isExt=canAct(c,i)&&i!==TODAY_IDX&&i<TODAY_IDX;var cls='dpill';if(i===TODAY_IDX)cls+=' today';else if(isExt)cls+=' ext';else if(hasDone)cls+=' hasd';if(S.filterDay===i)cls+=' sel';return '<div class="'+cls+'" data-fday="'+i+'">'+d+(isExt?'🔓':'')+'<span class="dn">'+(i+1)+'</span></div>'}).join('');
+  renderCDTasks(c);renderCDHist(c);
+}
+
+function renderCDTasks(c){
+  var el=document.getElementById('cd-tasks'),myT=tasksFor(c.id),rows=[];
+  myT.forEach(function(t){var days=S.filterDay!==null?t.days.filter(function(d){return d===S.filterDay}):t.days;days.forEach(function(di){rows.push({t:t,di:di})})});
+  if(!rows.length){el.innerHTML='<div class="empty"><div class="ei">🎉</div>Sin tareas</div>';return}
+  el.innerHTML=rows.map(function(r){
+    var t=r.t,di=r.di,k=t.id+'_'+di,entry=c.log[k]||{},isPast=di<TODAY_IDX,isToday=di===TODAY_IDX,interact=canAct(c,di),isExt=interact&&!isToday&&isPast;
+    var isDone=entry.done,hasP=entry.hasPhoto,complete=isDone&&(!t.photo||hasP);
+    var chkC=complete?'done':(!isDone&&isPast&&!interact?'miss':''),chkT=complete?'✓':(!isDone&&isPast&&!interact?'✗':'');
+    var extLbl=isExt?'<span class="ext-badge">🔓</span>':'';
+    var photoHtml='';
+    if(t.photo){if(hasP&&entry.photoData)photoHtml='<div class="pzone has" data-cviewkey="'+k+'" data-cviewname="'+t.name+'"><img src="'+entry.photoData+'" alt=""><div class="pov">🔍</div></div>';else if(interact)photoHtml='<div class="pzone" data-uploadkey="'+k+'" data-uploadname="'+t.name+'">📷 Subir foto'+(isExt?' (reactivado)':' de hoy')+'</div>'}
+    return '<div class="trow" style="flex-wrap:wrap"><div class="tchk '+chkC+'" '+(interact?'data-togglekey="'+k+'"':'')+'>'+chkT+'</div><div class="tinfo"><div class="tname '+(complete?'struck':'')+'">'+t.name+extLbl+'</div><div class="tday">'+DAYS[di]+(isToday?' · Hoy':(isExt?' · Reactivado':(isPast?' · Pasado':' · Próximo')))+' · '+(t.type==='bonus'?'🎁':'📌')+'</div>'+(isExt?'<div class="ext-timer">⏱ '+extRemain(c,di)+'</div>':'')+photoHtml+'</div><div class="tval '+(t.type==='bonus'?'pos':(complete?'pos':(isPast&&!interact?'neg':'')))+'">'+
+      (t.type==='bonus'?(complete?'+$'+t.value:'$'+t.value):(complete?'✓':(isPast&&!interact?'-$':(interact?'⏳':'–'))))+'</div></div>'}).join('');
+}
+
+function renderCDHist(c){
+  var el=document.getElementById('cd-hist');
+  var mine=S.history.filter(function(w){return w.data[c.id]}).reverse();
+  if(!mine.length){el.innerHTML='<div class="empty"><div class="ei">📊</div>Sin historial aún</div>';return}
+  el.innerHTML=mine.map(function(w){var d=w.data[c.id];
+    return '<div class="hist-row"><div class="hist-week"><h4>Semana '+w.weekNum+'</h4><p>'+w.weekLabel+(d.grade!=null?' · Calif: '+d.grade:'')+'</p></div><div style="text-align:right"><div class="hist-amt">$'+d.earned.toLocaleString()+'</div><div class="hist-badge '+(d.paid?'paid':'pend')+'">'+(d.paid?'Pagado ✓':'Pendiente')+'</div>'+(d.payProof?'<div style="margin-top:4px"><span style="font-size:11px;color:var(--green);cursor:pointer" data-histproof="'+S.history.indexOf(w)+'_'+c.id+'">📷 Ver comprobante</span></div>':'')+'</div></div>'}).join('');
+}
+
+// Child detail events
+document.getElementById('cd-strip').addEventListener('click',function(e){var pill=e.target.closest('.dpill');if(!pill)return;var di=parseInt(pill.getAttribute('data-fday'));S.filterDay=S.filterDay===di?null:di;var c=S.children.find(function(x){return x.id===S.curChild});if(c)renderCD(c)});
+document.getElementById('cd-tasks').addEventListener('click',function(e){
+  var toggle=e.target.closest('[data-togglekey]');
+  if(toggle){var k=toggle.getAttribute('data-togglekey'),c=S.children.find(function(x){return x.id===S.curChild});if(!c)return;if(!c.log[k])c.log[k]={done:false,hasPhoto:false,photoData:null,photoDate:null};c.log[k].done=!c.log[k].done;renderCD(c);return}
+  var upload=e.target.closest('[data-uploadkey]');
+  if(upload){S.pendingKey=upload.getAttribute('data-uploadkey');document.getElementById('mp-task').textContent='📋 '+upload.getAttribute('data-uploadname');openM('m-photo');return}
+  var view=e.target.closest('[data-cviewkey]');
+  if(view){showPhoto(view.getAttribute('data-cviewkey'),S.curChild,view.getAttribute('data-cviewname'),false);return}
+});
+// View pay proof from child
+document.getElementById('cd-pay').addEventListener('click',function(e){
+  if(!e.target.closest('[data-cd-proof]'))return;
+  var c=S.children.find(function(x){return x.id===S.curChild});if(!c||!c.payProof)return;
+  document.getElementById('mv-title').textContent='💰 Comprobante';
+  document.getElementById('mv-img').src=c.payProof;document.getElementById('mv-meta').textContent=c.payDate?new Date(c.payDate).toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'}):'';
+  document.getElementById('mv-actions').innerHTML='';openM('m-viewer');
+});
+// View history proof from child
+document.getElementById('cd-hist').addEventListener('click',function(e){
+  var el=e.target.closest('[data-histproof]');if(!el)return;
+  var parts=el.getAttribute('data-histproof').split('_'),wIdx=parseInt(parts[0]),cid=parseInt(parts[1]);
+  var w=S.history[wIdx];if(!w||!w.data[cid]||!w.data[cid].payProof)return;
+  document.getElementById('mv-title').textContent='💰 Comprobante Semana '+w.weekNum;
+  document.getElementById('mv-img').src=w.data[cid].payProof;document.getElementById('mv-meta').textContent='';
+  document.getElementById('mv-actions').innerHTML='';openM('m-viewer');
+});
+document.getElementById('child-det-back').addEventListener('click',function(){goTo('child-sel');renderChildSel()});
+
+// ═══ PHOTO SYSTEM ═══
+document.getElementById('mp-cam').addEventListener('click',function(){closeM('m-photo');document.getElementById('file-cam').click()});
+document.getElementById('mp-gal').addEventListener('click',function(){closeM('m-photo');document.getElementById('file-gal').click()});
+document.getElementById('mp-cancel').addEventListener('click',function(){closeM('m-photo')});
+function handleFile(file){if(!file||!S.pendingKey)return;var reader=new FileReader();reader.onload=function(ev){var c=S.children.find(function(x){return x.id===S.curChild});if(!c)return;var k=S.pendingKey;if(!c.log[k])c.log[k]={done:false,hasPhoto:false,photoData:null,photoDate:null};c.log[k].done=true;c.log[k].hasPhoto=true;c.log[k].photoData=ev.target.result;c.log[k].photoDate=new Date().toISOString();S.pendingKey=null;renderCD(c)};reader.readAsDataURL(file)}
+document.getElementById('file-cam').addEventListener('change',function(){handleFile(this.files[0]);this.value=''});
+document.getElementById('file-gal').addEventListener('change',function(){handleFile(this.files[0]);this.value=''});
+
+function showPhoto(key,childId,taskName,canDel){
+  var c=S.children.find(function(x){return x.id===childId});if(!c)return;var entry=c.log[key];if(!entry||!entry.photoData)return;
+  document.getElementById('mv-title').textContent='📷 '+taskName;document.getElementById('mv-img').src=entry.photoData;
+  var d=entry.photoDate?new Date(entry.photoDate):null;document.getElementById('mv-meta').textContent=d?d.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'})+' '+d.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}):'';
+  var act=document.getElementById('mv-actions');
+  if(canDel){act.innerHTML='<button class="btn btn-d btn-b" id="mv-del">🗑 Eliminar</button>';document.getElementById('mv-del').addEventListener('click',function(){entry.hasPhoto=false;entry.done=false;entry.photoData=null;entry.photoDate=null;closeM('m-viewer');renderPCAll(c)})}
+  else act.innerHTML='';openM('m-viewer');
+}
+document.getElementById('mv-close').addEventListener('click',function(){closeM('m-viewer')});
+
+// ═══ ADD CHILD ═══
+function buildEmojiPicker(){document.getElementById('epick').innerHTML=EMOJIS.map(function(em){return '<span class="eopt">'+em+'</span>'}).join('');S.selEmoji=EMOJIS[0]}
+document.getElementById('epick').addEventListener('click',function(e){var opt=e.target.closest('.eopt');if(!opt)return;document.querySelectorAll('.eopt').forEach(function(o){o.classList.remove('sel')});opt.classList.add('sel');S.selEmoji=opt.textContent.trim()});
+document.getElementById('btn-add-child').addEventListener('click',function(){buildEmojiPicker();openM('m-child')});
+document.getElementById('mc-cancel').addEventListener('click',function(){closeM('m-child')});
+document.getElementById('mc-save').addEventListener('click',function(){var name=document.getElementById('nc-name').value.trim(),age=parseInt(document.getElementById('nc-age').value)||0,pin=document.getElementById('nc-pin').value.trim();if(!name){alert('Nombre');return}if(!pin||pin.length!==4||!/^\d{4}$/.test(pin)){alert('La contraseña debe ser de 4 dígitos');return}S.children.push({id:S.nid++,name:name,age:age,emoji:S.selEmoji,customBase:null,grade:null,log:{},ext:{},paid:false,payProof:null,payDate:null,pin:pin});closeM('m-child');document.getElementById('nc-name').value='';document.getElementById('nc-age').value='';document.getElementById('nc-pin').value='';renderChildren()});
+
+// ═══ ADD TASK ═══
+function buildTaskForm(){S.selDays=[];S.selChildIds=[];document.getElementById('nt-days').innerHTML=DAYS.map(function(d,i){return '<span class="dpick" data-di="'+i+'">'+d+'</span>'}).join('');var cEl=document.getElementById('nt-children');if(!S.children.length){cEl.innerHTML='<span style="font-size:12px;color:var(--red)">Agrega un hijo primero</span>';return}cEl.innerHTML=S.children.map(function(c){return '<span class="cpick" data-cpid="'+c.id+'">'+c.emoji+' '+c.name+'</span>'}).join('')}
+document.getElementById('nt-days').addEventListener('click',function(e){var dp=e.target.closest('.dpick');if(!dp)return;var di=parseInt(dp.getAttribute('data-di')),idx=S.selDays.indexOf(di);if(idx>=0){S.selDays.splice(idx,1);dp.classList.remove('on')}else{S.selDays.push(di);dp.classList.add('on')}});
+document.getElementById('nt-children').addEventListener('click',function(e){var cp=e.target.closest('.cpick');if(!cp)return;var cid=parseInt(cp.getAttribute('data-cpid')),idx=S.selChildIds.indexOf(cid);if(idx>=0){S.selChildIds.splice(idx,1);cp.classList.remove('on')}else{S.selChildIds.push(cid);cp.classList.add('on')}});
+document.getElementById('btn-add-task').addEventListener('click',function(){buildTaskForm();openM('m-task')});
+document.getElementById('mt-cancel').addEventListener('click',function(){closeM('m-task')});
+document.getElementById('mt-save').addEventListener('click',function(){var name=document.getElementById('nt-name').value.trim(),type=document.getElementById('nt-type').value,val=parseFloat(document.getElementById('nt-val').value),photo=document.getElementById('nt-photo').value==='yes';if(!name||!S.selDays.length||!val){alert('Completa los campos');return}if(!S.selChildIds.length){alert('Selecciona al menos un hijo');return}S.tasks.push({id:S.ntid++,name:name,childIds:S.selChildIds.slice(),days:S.selDays.slice().sort(),type:type,value:val,photo:photo});closeM('m-task');document.getElementById('nt-name').value='';document.getElementById('nt-val').value='';renderTasks()});
+
+// ═══ PIN SYSTEM ═══
+var pinBuffer='',pinCallback=null,pinLocked=false;
+
+function openPin(icon,title,label,callback){
+  pinBuffer='';pinCallback=callback;pinLocked=false;
+  document.getElementById('pin-icon').textContent=icon;
+  document.getElementById('pin-title').textContent=title;
+  document.getElementById('pin-label').textContent=label;
+  document.getElementById('pin-error').textContent='';
+  updatePinDots();openM('m-pin');
+}
+
+function updatePinDots(){
+  var dots=document.getElementById('pin-dots').children;
+  for(var i=0;i<4;i++){dots[i].className='pin-dot'+(i<pinBuffer.length?' filled':'')}
+}
+
+function pinWrong(){
+  pinLocked=true;
+  var dots=document.getElementById('pin-dots').children;
+  for(var i=0;i<4;i++) dots[i].className='pin-dot wrong';
+  document.getElementById('pin-error').textContent='Contraseña incorrecta';
+  pinBuffer='';
+  setTimeout(function(){pinLocked=false;updatePinDots();document.getElementById('pin-error').textContent=''},800);
+}
+
+document.querySelector('.pin-pad').addEventListener('click',function(e){
+  var key=e.target.closest('.pin-key');if(!key||pinLocked)return;
+  var val=key.getAttribute('data-pk');
+  if(val==='cancel'){pinBuffer='';closeM('m-pin');return}
+  if(val==='del'){pinBuffer=pinBuffer.slice(0,-1);updatePinDots();return}
+  if(pinBuffer.length>=4)return;
+  pinBuffer+=val;updatePinDots();
+  if(pinBuffer.length===4){
+    setTimeout(function(){if(pinCallback)pinCallback(pinBuffer)},150);
+  }
+});
+
+// Save parent PIN
+document.getElementById('btn-save-parent-pin').addEventListener('click',function(){
+  var val=document.getElementById('cfg-parent-pin').value.trim();
+  if(!val||val.length!==4||!/^\d{4}$/.test(val)){alert('Debe ser 4 dígitos');return}
+  S.parentPin=val;document.getElementById('cfg-parent-pin').value='';alert('Contraseña de papás actualizada');
+});
+
+// Save child PIN
+document.getElementById('pc-save-child-pin').addEventListener('click',function(){
+  var c=S.children.find(function(x){return x.id===S.pcdChild});if(!c)return;
+  var val=document.getElementById('pc-child-pin').value.trim();
+  if(!val||val.length!==4||!/^\d{4}$/.test(val)){alert('Debe ser 4 dígitos');return}
+  c.pin=val;document.getElementById('pc-child-pin').value='';alert('Contraseña de '+c.name+' actualizada');
+});
+
+// Show child pin on detail open
+var _origOpenPChild=openPChildDetail;
+openPChildDetail=function(id){
+  _origOpenPChild(id);
+  var c=S.children.find(function(x){return x.id===id});
+  if(c)document.getElementById('pc-child-pin').value='';
+};
+
+// ═══ NAV (with PIN) ═══
+document.getElementById('go-parent').addEventListener('click',function(){
+  openPin('👨‍👩‍👧','Panel de Papás','Ingresa tu contraseña',function(pin){
+    if(pin===S.parentPin){closeM('m-pin');goTo('parent');renderParent()}
+    else pinWrong();
+  });
+});
+
+document.getElementById('go-child').addEventListener('click',function(){goTo('child-sel');renderChildSel()});
+
+// Override child selector click to require PIN
+document.getElementById('child-sel-list').addEventListener('click',function(e){
+  var card=e.target.closest('.ccard');if(!card)return;
+  var id=parseInt(card.getAttribute('data-csid'));
+  var c=S.children.find(function(x){return x.id===id});if(!c)return;
+  openPin(c.emoji,c.name,'Ingresa tu contraseña',function(pin){
+    if(pin===c.pin){closeM('m-pin');openChildDetail(id)}
+    else pinWrong();
+  });
+});
+
+document.getElementById('parent-back').addEventListener('click',function(){goTo('landing')});
+document.getElementById('child-sel-back').addEventListener('click',function(){goTo('landing')});
+</script>
+</body>
+</html>
