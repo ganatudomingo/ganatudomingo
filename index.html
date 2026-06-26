@@ -416,7 +416,7 @@ document.getElementById('pchild-back').addEventListener('click',function(){goTo(
 function renderChildSel(){
   var el=document.getElementById('child-sel-list');
   if(!S.children.length){el.innerHTML='<div class="empty"><div class="ei">👶</div>Pídele a papá que te agregue.</div>';return}
-  el.innerHTML=S.children.map(function(c){var e=calcEarned(c);return '<div class="ccard" data-csid="'+c.id+'"><div class="cav" style="background:rgba(62,207,142,.1)">'+c.emoji+'</div><div class="cinfo"><div class="cname">'+c.name+'</div><div class="cmeta">'+c.age+' años</div></div><div class="camt" style="color:var(--green)">$'+e.toLocaleString()+'</div></div>'}).join('');
+  el.innerHTML=S.children.map(function(c){return '<div class="ccard" data-csid="'+c.id+'"><div class="cav" style="background:rgba(62,207,142,.1)">'+c.emoji+'</div><div class="cinfo"><div class="cname">'+c.name+'</div><div class="cmeta">Toca para entrar con tu contraseña</div></div><div class="camt" style="color:var(--gray);font-size:24px">🔒</div></div>'}).join('');
 }
 // child-sel click handled in PIN NAV section below
 
