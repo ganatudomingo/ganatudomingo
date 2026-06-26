@@ -139,7 +139,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--white);
 </div>
 
 <div id="parent" class="screen">
-  <div class="topbar"><button class="btn-back" id="parent-back">←</button><div class="topbar-title">Panel Familiar</div><span class="badge badge-p">Papás</span></div>
+  <div class="topbar"><button class="btn-back" id="parent-back">←</button><div class="topbar-title">Panel Familiar</div><div style="display:flex;align-items:center;gap:10px"><button class="btn btn-g btn-s" id="btn-save-now">💾 Guardar</button><span class="badge badge-p">Papás</span></div></div>
   <div class="inner">
     <div class="tabs" id="parent-tabs">
       <button class="tab on" data-ptab="hijos">👶 Hijos</button>
@@ -155,6 +155,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--white);
       <div class="card"><div class="card-t">Factor calificaciones</div><p style="font-size:13px;color:var(--gray);margin-bottom:12px">Base = <strong style="color:var(--white)">8.0</strong></p><div class="fg" style="margin:0"><label class="fl">Promedio base</label><input class="fi" type="number" id="cfg-grade" value="8" min="0" max="10" step="0.1"></div></div>
       <div class="card"><div class="card-t">Cerrar semana</div><p style="font-size:13px;color:var(--gray);margin-bottom:12px">Archiva la semana actual en el historial y limpia tareas completadas para empezar nueva semana.</p><button class="btn btn-w btn-b" id="btn-close-week">📦 Cerrar semana actual</button></div>
       <div class="card"><div class="card-t">🔒 Contraseña de papás</div><div class="fg"><label class="fl">Nueva contraseña (4 dígitos)</label><input class="fi" id="cfg-parent-pin" type="password" maxlength="4" placeholder="••••" inputmode="numeric"></div><button class="btn btn-g btn-b" id="btn-save-parent-pin">Guardar contraseña</button></div>
+      <div class="card"><div class="card-t">💾 Datos guardados</div><p style="font-size:13px;color:var(--gray);margin-bottom:12px" id="cfg-storage-note">Tus cambios se guardan automáticamente en este dispositivo.</p><button class="btn btn-d btn-b" id="btn-reset-demo">🔄 Reiniciar a datos de demo</button></div>
     </div>
   </div>
 </div>
@@ -239,6 +240,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--white);
   </div>
 </div></div>
 
+<div id="save-toast" style="position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(120px);background:var(--green);color:#06281a;font-weight:700;padding:12px 26px;border-radius:30px;box-shadow:0 10px 34px rgba(0,0,0,.45);z-index:9999;transition:transform .35s cubic-bezier(.2,.9,.3,1.3);font-size:14px;pointer-events:none">✓ Guardado</div>
+
 <script>
 var DAYS=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'],EMOJIS=['😊','😎','🦊','🐯','🦁','🐸','⭐','🚀'];
 var TODAY_IDX=(new Date().getDay()+6)%7;
@@ -254,6 +257,64 @@ var S={
   nid:2,ntid:4,curChild:null,pcdChild:null,
   selEmoji:'😊',selDays:[],selChildIds:[],pendingKey:null,filterDay:null,payTarget:null
 };
+
+/* ═══════════════ PERSISTENCIA (localStorage) ═══════════════ */
+var STORAGE_KEY='ganaTuDomingo_v1';
+// Solo se guardan los datos reales, no el estado temporal de la interfaz.
+var PERSIST_FIELDS=['globalBase','baseGrade','weekNum','parentPin','children','tasks','history','nid','ntid'];
+
+function storageAvailable(){
+  try{var t='__t';localStorage.setItem(t,t);localStorage.removeItem(t);return true}
+  catch(e){return false}
+}
+var HAS_STORAGE=storageAvailable();
+
+// Guarda de inmediato. Devuelve true/false según éxito.
+function saveNow(){
+  if(!HAS_STORAGE){console.warn('localStorage no disponible: los cambios no se guardarán.');return false}
+  try{
+    var out={};PERSIST_FIELDS.forEach(function(k){out[k]=S[k]});
+    localStorage.setItem(STORAGE_KEY,JSON.stringify(out));
+    return true;
+  }catch(err){console.error('Error al guardar:',err);return false}
+}
+
+// Guardado automático con debounce (agrupa cambios rápidos en una sola escritura).
+var _saveTimer=null;
+function save(){
+  if(!HAS_STORAGE)return;
+  if(_saveTimer)clearTimeout(_saveTimer);
+  _saveTimer=setTimeout(function(){_saveTimer=null;saveNow()},400);
+}
+
+// Carga los datos guardados al iniciar. Si no hay, se quedan los datos de demo.
+function load(){
+  if(!HAS_STORAGE)return false;
+  try{
+    var raw=localStorage.getItem(STORAGE_KEY);
+    if(!raw)return false;
+    var data=JSON.parse(raw);
+    PERSIST_FIELDS.forEach(function(k){if(data[k]!==undefined)S[k]=data[k]});
+    return true;
+  }catch(err){console.error('Error al cargar:',err);return false}
+}
+
+// Borra lo guardado y reinicia a los datos de demo.
+function resetDemo(){
+  if(HAS_STORAGE){try{localStorage.removeItem(STORAGE_KEY)}catch(err){}}
+  location.reload();
+}
+
+// Aviso visual "Guardado ✓".
+function showToast(msg,ok){
+  var t=document.getElementById('save-toast');if(!t)return;
+  t.textContent=(ok===false?'⚠ '+msg:'✓ '+(msg||'Guardado'));
+  t.style.background=ok===false?'var(--red)':'var(--green)';
+  t.style.color=ok===false?'#fff':'#06281a';
+  t.style.transform='translateX(-50%) translateY(0)';
+  clearTimeout(t._tmr);
+  t._tmr=setTimeout(function(){t.style.transform='translateX(-50%) translateY(120px)'},1600);
+}
 
 function goTo(id){document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active')});document.getElementById(id).classList.add('active')}
 function openM(id){document.getElementById(id).classList.add('open')}
@@ -307,9 +368,9 @@ function renderHistParent(){
 document.getElementById('parent-tabs').addEventListener('click',function(e){var tab=e.target.closest('.tab');if(!tab)return;var w=tab.getAttribute('data-ptab');document.querySelectorAll('#parent-tabs .tab').forEach(function(t){t.classList.remove('on')});tab.classList.add('on');
   ['hijos','tareas','historial','config'].forEach(function(t){document.getElementById('pt-'+t).style.display=t===w?'':'none'})});
 document.getElementById('children-list').addEventListener('click',function(e){var card=e.target.closest('.ccard');if(!card)return;openPChildDetail(parseInt(card.getAttribute('data-cid')))});
-document.getElementById('tasks-list').addEventListener('click',function(e){var btn=e.target.closest('[data-rmtask]');if(!btn)return;S.tasks=S.tasks.filter(function(t){return t.id!==parseInt(btn.getAttribute('data-rmtask'))});renderTasks()});
-document.getElementById('cfg-base').addEventListener('input',function(){S.globalBase=parseFloat(this.value)||1000});
-document.getElementById('cfg-grade').addEventListener('input',function(){S.baseGrade=parseFloat(this.value)||8});
+document.getElementById('tasks-list').addEventListener('click',function(e){var btn=e.target.closest('[data-rmtask]');if(!btn)return;S.tasks=S.tasks.filter(function(t){return t.id!==parseInt(btn.getAttribute('data-rmtask'))});renderTasks();save()});
+document.getElementById('cfg-base').addEventListener('input',function(){S.globalBase=parseFloat(this.value)||1000;save()});
+document.getElementById('cfg-grade').addEventListener('input',function(){S.baseGrade=parseFloat(this.value)||8;save()});
 
 // Close week
 document.getElementById('btn-close-week').addEventListener('click',function(){
@@ -319,7 +380,7 @@ document.getElementById('btn-close-week').addEventListener('click',function(){
   S.history.push(wk);S.weekNum++;
   // Reset children logs/payments
   S.children.forEach(function(c){c.log={};c.ext={};c.paid=false;c.payProof=null;c.payDate=null});
-  renderParent();alert('Semana cerrada y archivada.');
+  renderParent();saveNow();alert('Semana cerrada y archivada.');
 });
 
 // ═══ PARENT CHILD DETAIL ═══
@@ -376,17 +437,17 @@ function renderPCTasks(c){
 }
 
 // Events parent child
-document.getElementById('pc-grade').addEventListener('input',function(){var c=S.children.find(function(x){return x.id===S.pcdChild});if(!c)return;c.grade=this.value===''?null:parseFloat(this.value);var bg=S.baseGrade||8;document.getElementById('pc-grade-fx').textContent=c.grade!=null?(Math.round((c.grade/bg-1)*100)>=0?'+':'')+(Math.round((c.grade/bg-1)*100))+'%':'Ingresa calificación.';renderPCMeter(c)});
-document.getElementById('pc-custom-base').addEventListener('input',function(){var c=S.children.find(function(x){return x.id===S.pcdChild});if(!c)return;c.customBase=this.value===''?null:parseFloat(this.value);renderPCMeter(c)});
-document.getElementById('pc-remove').addEventListener('click',function(){if(!confirm('¿Eliminar?'))return;S.children=S.children.filter(function(c){return c.id!==S.pcdChild});S.tasks.forEach(function(t){t.childIds=t.childIds.filter(function(id){return id!==S.pcdChild})});goTo('parent');renderParent()});
-document.getElementById('pc-days-extend').addEventListener('click',function(e){var dp=e.target.closest('[data-extday]');if(!dp)return;var c=S.children.find(function(x){return x.id===S.pcdChild});if(!c)return;var di=parseInt(dp.getAttribute('data-extday'));if(di>=TODAY_IDX)return;var isE=c.ext[di]&&c.ext[di]>Date.now();if(isE)delete c.ext[di];else c.ext[di]=Date.now()+86400000;renderPCAll(c)});
+document.getElementById('pc-grade').addEventListener('input',function(){var c=S.children.find(function(x){return x.id===S.pcdChild});if(!c)return;c.grade=this.value===''?null:parseFloat(this.value);var bg=S.baseGrade||8;document.getElementById('pc-grade-fx').textContent=c.grade!=null?(Math.round((c.grade/bg-1)*100)>=0?'+':'')+(Math.round((c.grade/bg-1)*100))+'%':'Ingresa calificación.';renderPCMeter(c);save()});
+document.getElementById('pc-custom-base').addEventListener('input',function(){var c=S.children.find(function(x){return x.id===S.pcdChild});if(!c)return;c.customBase=this.value===''?null:parseFloat(this.value);renderPCMeter(c);save()});
+document.getElementById('pc-remove').addEventListener('click',function(){if(!confirm('¿Eliminar?'))return;S.children=S.children.filter(function(c){return c.id!==S.pcdChild});S.tasks.forEach(function(t){t.childIds=t.childIds.filter(function(id){return id!==S.pcdChild})});goTo('parent');renderParent();save()});
+document.getElementById('pc-days-extend').addEventListener('click',function(e){var dp=e.target.closest('[data-extday]');if(!dp)return;var c=S.children.find(function(x){return x.id===S.pcdChild});if(!c)return;var di=parseInt(dp.getAttribute('data-extday'));if(di>=TODAY_IDX)return;var isE=c.ext[di]&&c.ext[di]>Date.now();if(isE)delete c.ext[di];else c.ext[di]=Date.now()+86400000;renderPCAll(c);save()});
 document.getElementById('pc-tasks').addEventListener('click',function(e){var pz=e.target.closest('[data-viewkey]');if(!pz)return;showPhoto(pz.getAttribute('data-viewkey'),parseInt(pz.getAttribute('data-viewchild')),pz.getAttribute('data-viewname'),pz.getAttribute('data-viewdel')==='1')});
 
 // Payment events (delegated on pc-pay)
 document.getElementById('pc-pay').addEventListener('click',function(e){
   var c=S.children.find(function(x){return x.id===S.pcdChild});if(!c)return;
-  if(e.target.closest('#pc-mark-paid')){c.paid=true;c.payDate=new Date().toISOString();renderPCAll(c);return}
-  if(e.target.closest('#pc-unmark-paid')){c.paid=false;c.payProof=null;c.payDate=null;renderPCAll(c);return}
+  if(e.target.closest('#pc-mark-paid')){c.paid=true;c.payDate=new Date().toISOString();renderPCAll(c);save();return}
+  if(e.target.closest('#pc-unmark-paid')){c.paid=false;c.payProof=null;c.payDate=null;renderPCAll(c);save();return}
   if(e.target.closest('#pc-pay-upload')){S.payTarget=c.id;document.getElementById('file-pay').click();return}
   if(e.target.closest('#pc-pay-proof')){
     if(!c.payProof)return;
@@ -394,7 +455,7 @@ document.getElementById('pc-pay').addEventListener('click',function(e){
     document.getElementById('mv-img').src=c.payProof;
     document.getElementById('mv-meta').textContent=c.payDate?'Pagado el '+new Date(c.payDate).toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'}):'';
     document.getElementById('mv-actions').innerHTML='<button class="btn btn-d btn-b" id="mv-del-pay">🗑 Eliminar comprobante</button>';
-    document.getElementById('mv-del-pay').addEventListener('click',function(){c.payProof=null;closeM('m-viewer');renderPCAll(c)});
+    document.getElementById('mv-del-pay').addEventListener('click',function(){c.payProof=null;closeM('m-viewer');renderPCAll(c);save()});
     openM('m-viewer');
   }
 });
@@ -406,7 +467,7 @@ document.getElementById('file-pay').addEventListener('change',function(){
   reader.onload=function(ev){
     var c=S.children.find(function(x){return x.id===S.payTarget});if(!c)return;
     c.paid=true;c.payProof=ev.target.result;c.payDate=new Date().toISOString();
-    renderPCAll(c);
+    renderPCAll(c);save();
   };reader.readAsDataURL(file);
 });
 
@@ -472,7 +533,7 @@ function renderCDHist(c){
 document.getElementById('cd-strip').addEventListener('click',function(e){var pill=e.target.closest('.dpill');if(!pill)return;var di=parseInt(pill.getAttribute('data-fday'));S.filterDay=S.filterDay===di?null:di;var c=S.children.find(function(x){return x.id===S.curChild});if(c)renderCD(c)});
 document.getElementById('cd-tasks').addEventListener('click',function(e){
   var toggle=e.target.closest('[data-togglekey]');
-  if(toggle){var k=toggle.getAttribute('data-togglekey'),c=S.children.find(function(x){return x.id===S.curChild});if(!c)return;if(!c.log[k])c.log[k]={done:false,hasPhoto:false,photoData:null,photoDate:null};c.log[k].done=!c.log[k].done;renderCD(c);return}
+  if(toggle){var k=toggle.getAttribute('data-togglekey'),c=S.children.find(function(x){return x.id===S.curChild});if(!c)return;if(!c.log[k])c.log[k]={done:false,hasPhoto:false,photoData:null,photoDate:null};c.log[k].done=!c.log[k].done;renderCD(c);save();return}
   var upload=e.target.closest('[data-uploadkey]');
   if(upload){S.pendingKey=upload.getAttribute('data-uploadkey');document.getElementById('mp-task').textContent='📋 '+upload.getAttribute('data-uploadname');openM('m-photo');return}
   var view=e.target.closest('[data-cviewkey]');
@@ -501,7 +562,7 @@ document.getElementById('child-det-back').addEventListener('click',function(){go
 document.getElementById('mp-cam').addEventListener('click',function(){closeM('m-photo');document.getElementById('file-cam').click()});
 document.getElementById('mp-gal').addEventListener('click',function(){closeM('m-photo');document.getElementById('file-gal').click()});
 document.getElementById('mp-cancel').addEventListener('click',function(){closeM('m-photo')});
-function handleFile(file){if(!file||!S.pendingKey)return;var reader=new FileReader();reader.onload=function(ev){var c=S.children.find(function(x){return x.id===S.curChild});if(!c)return;var k=S.pendingKey;if(!c.log[k])c.log[k]={done:false,hasPhoto:false,photoData:null,photoDate:null};c.log[k].done=true;c.log[k].hasPhoto=true;c.log[k].photoData=ev.target.result;c.log[k].photoDate=new Date().toISOString();S.pendingKey=null;renderCD(c)};reader.readAsDataURL(file)}
+function handleFile(file){if(!file||!S.pendingKey)return;var reader=new FileReader();reader.onload=function(ev){var c=S.children.find(function(x){return x.id===S.curChild});if(!c)return;var k=S.pendingKey;if(!c.log[k])c.log[k]={done:false,hasPhoto:false,photoData:null,photoDate:null};c.log[k].done=true;c.log[k].hasPhoto=true;c.log[k].photoData=ev.target.result;c.log[k].photoDate=new Date().toISOString();S.pendingKey=null;renderCD(c);save()};reader.readAsDataURL(file)}
 document.getElementById('file-cam').addEventListener('change',function(){handleFile(this.files[0]);this.value=''});
 document.getElementById('file-gal').addEventListener('change',function(){handleFile(this.files[0]);this.value=''});
 
@@ -510,7 +571,7 @@ function showPhoto(key,childId,taskName,canDel){
   document.getElementById('mv-title').textContent='📷 '+taskName;document.getElementById('mv-img').src=entry.photoData;
   var d=entry.photoDate?new Date(entry.photoDate):null;document.getElementById('mv-meta').textContent=d?d.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'})+' '+d.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}):'';
   var act=document.getElementById('mv-actions');
-  if(canDel){act.innerHTML='<button class="btn btn-d btn-b" id="mv-del">🗑 Eliminar</button>';document.getElementById('mv-del').addEventListener('click',function(){entry.hasPhoto=false;entry.done=false;entry.photoData=null;entry.photoDate=null;closeM('m-viewer');renderPCAll(c)})}
+  if(canDel){act.innerHTML='<button class="btn btn-d btn-b" id="mv-del">🗑 Eliminar</button>';document.getElementById('mv-del').addEventListener('click',function(){entry.hasPhoto=false;entry.done=false;entry.photoData=null;entry.photoDate=null;closeM('m-viewer');renderPCAll(c);save()})}
   else act.innerHTML='';openM('m-viewer');
 }
 document.getElementById('mv-close').addEventListener('click',function(){closeM('m-viewer')});
@@ -520,7 +581,7 @@ function buildEmojiPicker(){document.getElementById('epick').innerHTML=EMOJIS.ma
 document.getElementById('epick').addEventListener('click',function(e){var opt=e.target.closest('.eopt');if(!opt)return;document.querySelectorAll('.eopt').forEach(function(o){o.classList.remove('sel')});opt.classList.add('sel');S.selEmoji=opt.textContent.trim()});
 document.getElementById('btn-add-child').addEventListener('click',function(){buildEmojiPicker();openM('m-child')});
 document.getElementById('mc-cancel').addEventListener('click',function(){closeM('m-child')});
-document.getElementById('mc-save').addEventListener('click',function(){var name=document.getElementById('nc-name').value.trim(),age=parseInt(document.getElementById('nc-age').value)||0,pin=document.getElementById('nc-pin').value.trim();if(!name){alert('Nombre');return}if(!pin||pin.length!==4||!/^\d{4}$/.test(pin)){alert('La contraseña debe ser de 4 dígitos');return}S.children.push({id:S.nid++,name:name,age:age,emoji:S.selEmoji,customBase:null,grade:null,log:{},ext:{},paid:false,payProof:null,payDate:null,pin:pin});closeM('m-child');document.getElementById('nc-name').value='';document.getElementById('nc-age').value='';document.getElementById('nc-pin').value='';renderChildren()});
+document.getElementById('mc-save').addEventListener('click',function(){var name=document.getElementById('nc-name').value.trim(),age=parseInt(document.getElementById('nc-age').value)||0,pin=document.getElementById('nc-pin').value.trim();if(!name){alert('Nombre');return}if(!pin||pin.length!==4||!/^\d{4}$/.test(pin)){alert('La contraseña debe ser de 4 dígitos');return}S.children.push({id:S.nid++,name:name,age:age,emoji:S.selEmoji,customBase:null,grade:null,log:{},ext:{},paid:false,payProof:null,payDate:null,pin:pin});closeM('m-child');document.getElementById('nc-name').value='';document.getElementById('nc-age').value='';document.getElementById('nc-pin').value='';renderChildren();save()});
 
 // ═══ ADD TASK ═══
 function buildTaskForm(){S.selDays=[];S.selChildIds=[];document.getElementById('nt-days').innerHTML=DAYS.map(function(d,i){return '<span class="dpick" data-di="'+i+'">'+d+'</span>'}).join('');var cEl=document.getElementById('nt-children');if(!S.children.length){cEl.innerHTML='<span style="font-size:12px;color:var(--red)">Agrega un hijo primero</span>';return}cEl.innerHTML=S.children.map(function(c){return '<span class="cpick" data-cpid="'+c.id+'">'+c.emoji+' '+c.name+'</span>'}).join('')}
@@ -528,7 +589,7 @@ document.getElementById('nt-days').addEventListener('click',function(e){var dp=e
 document.getElementById('nt-children').addEventListener('click',function(e){var cp=e.target.closest('.cpick');if(!cp)return;var cid=parseInt(cp.getAttribute('data-cpid')),idx=S.selChildIds.indexOf(cid);if(idx>=0){S.selChildIds.splice(idx,1);cp.classList.remove('on')}else{S.selChildIds.push(cid);cp.classList.add('on')}});
 document.getElementById('btn-add-task').addEventListener('click',function(){buildTaskForm();openM('m-task')});
 document.getElementById('mt-cancel').addEventListener('click',function(){closeM('m-task')});
-document.getElementById('mt-save').addEventListener('click',function(){var name=document.getElementById('nt-name').value.trim(),type=document.getElementById('nt-type').value,val=parseFloat(document.getElementById('nt-val').value),photo=document.getElementById('nt-photo').value==='yes';if(!name||!S.selDays.length||!val){alert('Completa los campos');return}if(!S.selChildIds.length){alert('Selecciona al menos un hijo');return}S.tasks.push({id:S.ntid++,name:name,childIds:S.selChildIds.slice(),days:S.selDays.slice().sort(),type:type,value:val,photo:photo});closeM('m-task');document.getElementById('nt-name').value='';document.getElementById('nt-val').value='';renderTasks()});
+document.getElementById('mt-save').addEventListener('click',function(){var name=document.getElementById('nt-name').value.trim(),type=document.getElementById('nt-type').value,val=parseFloat(document.getElementById('nt-val').value),photo=document.getElementById('nt-photo').value==='yes';if(!name||!S.selDays.length||!val){alert('Completa los campos');return}if(!S.selChildIds.length){alert('Selecciona al menos un hijo');return}S.tasks.push({id:S.ntid++,name:name,childIds:S.selChildIds.slice(),days:S.selDays.slice().sort(),type:type,value:val,photo:photo});closeM('m-task');document.getElementById('nt-name').value='';document.getElementById('nt-val').value='';renderTasks();save()});
 
 // ═══ PIN SYSTEM ═══
 var pinBuffer='',pinCallback=null,pinLocked=false;
@@ -572,7 +633,7 @@ document.querySelector('.pin-pad').addEventListener('click',function(e){
 document.getElementById('btn-save-parent-pin').addEventListener('click',function(){
   var val=document.getElementById('cfg-parent-pin').value.trim();
   if(!val||val.length!==4||!/^\d{4}$/.test(val)){alert('Debe ser 4 dígitos');return}
-  S.parentPin=val;document.getElementById('cfg-parent-pin').value='';alert('Contraseña de papás actualizada');
+  S.parentPin=val;document.getElementById('cfg-parent-pin').value='';saveNow();alert('Contraseña de papás actualizada');
 });
 
 // Save child PIN
@@ -580,7 +641,7 @@ document.getElementById('pc-save-child-pin').addEventListener('click',function()
   var c=S.children.find(function(x){return x.id===S.pcdChild});if(!c)return;
   var val=document.getElementById('pc-child-pin').value.trim();
   if(!val||val.length!==4||!/^\d{4}$/.test(val)){alert('Debe ser 4 dígitos');return}
-  c.pin=val;document.getElementById('pc-child-pin').value='';alert('Contraseña de '+c.name+' actualizada');
+  c.pin=val;document.getElementById('pc-child-pin').value='';saveNow();alert('Contraseña de '+c.name+' actualizada');
 });
 
 // Show child pin on detail open
@@ -614,6 +675,31 @@ document.getElementById('child-sel-list').addEventListener('click',function(e){
 
 document.getElementById('parent-back').addEventListener('click',function(){goTo('landing')});
 document.getElementById('child-sel-back').addEventListener('click',function(){goTo('landing')});
+
+/* ═══════════════ INICIALIZACIÓN Y GUARDADO ═══════════════ */
+// Botón Guardar manual (fuerza escritura inmediata + confirmación visual).
+document.getElementById('btn-save-now').addEventListener('click',function(){
+  var ok=saveNow();
+  showToast(ok?'Guardado':'No se pudo guardar',ok);
+});
+
+// Botón Reiniciar a datos de demo.
+document.getElementById('btn-reset-demo').addEventListener('click',function(){
+  if(confirm('Esto borrará TODOS tus cambios y volverá a los datos de demo. ¿Continuar?'))resetDemo();
+});
+
+// Si el navegador bloquea el almacenamiento, avísale al usuario.
+if(!HAS_STORAGE){
+  var note=document.getElementById('cfg-storage-note');
+  if(note){note.innerHTML='<span style="color:var(--red)">⚠ Tu navegador está bloqueando el almacenamiento (¿modo privado/incógnito?). Los cambios no se guardarán al recargar.</span>'}
+}
+
+// Red de seguridad: guarda al cambiar de pestaña o cerrar la página.
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden')saveNow()});
+window.addEventListener('pagehide',function(){saveNow()});
+
+// Cargar datos guardados al arrancar (antes de cualquier render).
+load();
 </script>
 </body>
 </html>
