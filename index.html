@@ -136,6 +136,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--white);
     <div class="role-card" id="go-parent"><div class="ri">👨‍👩‍👧</div><h3>Soy Papá / Mamá</h3><p>Configurar tareas, hijos y domingos</p></div>
     <div class="role-card" id="go-child"><div class="ri">⭐</div><h3>Soy Hijo</h3><p>Ver mis tareas y cuánto llevo ganado</p></div>
   </div>
+  <div id="fam-bar" style="margin-top:34px;width:100%;max-width:460px">
+    <div id="fam-status" style="font-size:13px;margin-bottom:10px;line-height:1.5;color:var(--gray)"></div>
+    <div style="display:flex;gap:8px">
+      <input class="fi" id="fam-input" placeholder="Código de familia" autocomplete="off" style="flex:1">
+      <button class="btn btn-g" id="fam-connect">Conectar</button>
+    </div>
+    <p style="font-size:11px;color:var(--gray);margin-top:8px">Usa el mismo código en todos los dispositivos de tu familia.</p>
+  </div>
 </div>
 
 <div id="parent" class="screen">
@@ -155,7 +163,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--white);
       <div class="card"><div class="card-t">Factor calificaciones</div><p style="font-size:13px;color:var(--gray);margin-bottom:12px">Base = <strong style="color:var(--white)">8.0</strong></p><div class="fg" style="margin:0"><label class="fl">Promedio base</label><input class="fi" type="number" id="cfg-grade" value="8" min="0" max="10" step="0.1"></div></div>
       <div class="card"><div class="card-t">Cerrar semana</div><p style="font-size:13px;color:var(--gray);margin-bottom:12px">Archiva la semana actual en el historial y limpia tareas completadas para empezar nueva semana.</p><button class="btn btn-w btn-b" id="btn-close-week">📦 Cerrar semana actual</button></div>
       <div class="card"><div class="card-t">🔒 Contraseña de papás</div><div class="fg"><label class="fl">Nueva contraseña (4 dígitos)</label><input class="fi" id="cfg-parent-pin" type="password" maxlength="4" placeholder="••••" inputmode="numeric"></div><button class="btn btn-g btn-b" id="btn-save-parent-pin">Guardar contraseña</button></div>
-      <div class="card"><div class="card-t">💾 Datos guardados</div><p style="font-size:13px;color:var(--gray);margin-bottom:12px" id="cfg-storage-note">Tus cambios se guardan automáticamente en este dispositivo.</p><button class="btn btn-d btn-b" id="btn-reset-demo">🔄 Reiniciar a datos de demo</button></div>
+      <div class="card"><div class="card-t">💾 Sincronización</div><p style="font-size:13px;color:var(--gray);margin-bottom:12px" id="cfg-storage-note">Tus cambios se guardan automáticamente.</p><button class="btn btn-d btn-b" id="btn-reset-demo">🔄 Reiniciar a datos de demo</button></div>
     </div>
   </div>
 </div>
@@ -242,6 +250,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--white);
 
 <div id="save-toast" style="position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(120px);background:var(--green);color:#06281a;font-weight:700;padding:12px 26px;border-radius:30px;box-shadow:0 10px 34px rgba(0,0,0,.45);z-index:9999;transition:transform .35s cubic-bezier(.2,.9,.3,1.3);font-size:14px;pointer-events:none">✓ Guardado</div>
 
+<!-- Firebase (sincronización en la nube). SDK 'compat' para uso directo sin bundler -->
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+
 <script>
 var DAYS=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'],EMOJIS=['😊','😎','🦊','🐯','🦁','🐸','⭐','🚀'];
 var TODAY_IDX=(new Date().getDay()+6)%7;
@@ -255,65 +267,145 @@ var S={
   ],
   history:[], // [{weekNum,weekLabel,data:{childId:{name,emoji,earned,max,grade,paid,payProof,payDate}}}]
   nid:2,ntid:4,curChild:null,pcdChild:null,
-  selEmoji:'😊',selDays:[],selChildIds:[],pendingKey:null,filterDay:null,payTarget:null
+  selEmoji:'\U0001F60A',selDays:[],selChildIds:[],pendingKey:null,filterDay:null,payTarget:null
 };
 
-/* ═══════════════ PERSISTENCIA (localStorage) ═══════════════ */
+/* ═══════════════════════════════════════════════════════════════════
+   CONFIGURACIÓN DE FIREBASE
+   Pega aquí la config de TU proyecto (ver instrucciones).
+   Mientras esté vacío, la app funciona en "modo local" (un solo dispositivo).
+   ═══════════════════════════════════════════════════════════════════ */
+var FIREBASE_CONFIG = {
+  apiKey: "AIzaSyASD64_iOhIoK5JqJtLDkXrVXlxNuIFgkI",
+  authDomain: "gana-tu-domingo.firebaseapp.com",
+  projectId: "gana-tu-domingo",
+  storageBucket: "gana-tu-domingo.firebasestorage.app",
+  messagingSenderId: "1082275792906",
+  appId: "1:1082275792906:web:c2261c14568ec5f6e8b7f3"
+};
+/* ═══════════════════════════════════════════════════════════════════ */
+
 var STORAGE_KEY='ganaTuDomingo_v1';
-// Solo se guardan los datos reales, no el estado temporal de la interfaz.
+var FAMILY_KEY='gtd_family';
 var PERSIST_FIELDS=['globalBase','baseGrade','weekNum','parentPin','children','tasks','history','nid','ntid'];
+var MODE='local';            // 'firebase' | 'local'
+var FB={db:null,ref:null,unsub:null};
+var FAMILY_CODE='';
+var _applyingRemote=false;
 
-function storageAvailable(){
-  try{var t='__t';localStorage.setItem(t,t);localStorage.removeItem(t);return true}
-  catch(e){return false}
+function lsAvailable(){try{var t='__t';localStorage.setItem(t,t);localStorage.removeItem(t);return true}catch(e){return false}}
+var HAS_LS=lsAvailable();
+function firebaseConfigured(){return !!(FIREBASE_CONFIG&&FIREBASE_CONFIG.projectId&&typeof firebase!=='undefined')}
+
+function stateToObj(){var o={};PERSIST_FIELDS.forEach(function(k){o[k]=S[k]});return o}
+function applyObj(d){if(!d)return;PERSIST_FIELDS.forEach(function(k){if(d[k]!==undefined)S[k]=d[k]})}
+
+function loadLocal(){if(!HAS_LS)return false;try{var raw=localStorage.getItem(STORAGE_KEY);if(!raw)return false;applyObj(JSON.parse(raw));return true}catch(e){return false}}
+function saveLocal(){if(!HAS_LS)return false;try{localStorage.setItem(STORAGE_KEY,JSON.stringify(stateToObj()));return true}catch(e){console.warn('localStorage lleno o bloqueado',e);return false}}
+
+// Comprime imágenes a miniaturas (~360px JPEG) para que quepan en la nube.
+function compressImage(file,cb){
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    var img=new Image();
+    img.onload=function(){
+      var max=360,w=img.width,h=img.height;
+      if(w>h&&w>max){h=Math.round(h*max/w);w=max}
+      else if(h>=w&&h>max){w=Math.round(w*max/h);h=max}
+      try{var cv=document.createElement('canvas');cv.width=w;cv.height=h;cv.getContext('2d').drawImage(img,0,0,w,h);cb(cv.toDataURL('image/jpeg',0.5))}
+      catch(e){cb(ev.target.result)}
+    };
+    img.onerror=function(){cb(ev.target.result)};
+    img.src=ev.target.result;
+  };
+  reader.readAsDataURL(file);
 }
-var HAS_STORAGE=storageAvailable();
 
-// Guarda de inmediato. Devuelve true/false según éxito.
+// Si el estado excede ~900KB (límite de Firestore = 1MB), recorta fotos por prioridad.
+function fitForCloud(){
+  var obj=stateToObj(),str=JSON.stringify(obj),trimmed=false;
+  if(str.length<=900000)return {obj:obj,trimmed:false};
+  obj=JSON.parse(str);
+  // 1) comprobantes de pago históricos
+  (obj.history||[]).forEach(function(w){Object.keys(w.data||{}).forEach(function(cid){if(w.data[cid].payProof){w.data[cid].payProof=null;trimmed=true}})});
+  if(JSON.stringify(obj).length<=900000)return {obj:obj,trimmed:trimmed};
+  // 2) comprobantes de pago actuales
+  (obj.children||[]).forEach(function(c){if(c.payProof){c.payProof=null;trimmed=true}});
+  if(JSON.stringify(obj).length<=900000)return {obj:obj,trimmed:trimmed};
+  // 3) fotos de evidencia más viejas (días menores primero)
+  (obj.children||[]).forEach(function(c){Object.keys(c.log||{}).sort().forEach(function(k){if(JSON.stringify(obj).length>900000&&c.log[k]&&c.log[k].photoData){c.log[k].photoData=null;trimmed=true}})});
+  return {obj:obj,trimmed:trimmed};
+}
+
 function saveNow(){
-  if(!HAS_STORAGE){console.warn('localStorage no disponible: los cambios no se guardarán.');return false}
-  try{
-    var out={};PERSIST_FIELDS.forEach(function(k){out[k]=S[k]});
-    localStorage.setItem(STORAGE_KEY,JSON.stringify(out));
+  if(_applyingRemote)return true; // no reguardar lo que acaba de llegar del servidor
+  if(MODE==='firebase'&&FB.ref){
+    var fit=fitForCloud();
+    saveLocal();
+    FB.ref.set(fit.obj).then(function(){if(fit.trimmed)showToast('Guardado (algunas fotos no se sincronizaron por tamaño)',false)})
+      .catch(function(e){console.error('Error guardando en la nube:',e);showToast('Error al sincronizar',false)});
     return true;
-  }catch(err){console.error('Error al guardar:',err);return false}
+  }
+  return saveLocal();
 }
-
-// Guardado automático con debounce (agrupa cambios rápidos en una sola escritura).
 var _saveTimer=null;
-function save(){
-  if(!HAS_STORAGE)return;
-  if(_saveTimer)clearTimeout(_saveTimer);
-  _saveTimer=setTimeout(function(){_saveTimer=null;saveNow()},400);
-}
+function save(){if(_applyingRemote)return;if(_saveTimer)clearTimeout(_saveTimer);_saveTimer=setTimeout(function(){_saveTimer=null;saveNow()},450)}
 
-// Carga los datos guardados al iniciar. Si no hay, se quedan los datos de demo.
-function load(){
-  if(!HAS_STORAGE)return false;
-  try{
-    var raw=localStorage.getItem(STORAGE_KEY);
-    if(!raw)return false;
-    var data=JSON.parse(raw);
-    PERSIST_FIELDS.forEach(function(k){if(data[k]!==undefined)S[k]=data[k]});
-    return true;
-  }catch(err){console.error('Error al cargar:',err);return false}
-}
-
-// Borra lo guardado y reinicia a los datos de demo.
-function resetDemo(){
-  if(HAS_STORAGE){try{localStorage.removeItem(STORAGE_KEY)}catch(err){}}
-  location.reload();
-}
-
-// Aviso visual "Guardado ✓".
 function showToast(msg,ok){
   var t=document.getElementById('save-toast');if(!t)return;
-  t.textContent=(ok===false?'⚠ '+msg:'✓ '+(msg||'Guardado'));
+  t.textContent=(ok===false?'\u26A0 '+msg:'\u2713 '+(msg||'Guardado'));
   t.style.background=ok===false?'var(--red)':'var(--green)';
   t.style.color=ok===false?'#fff':'#06281a';
   t.style.transform='translateX(-50%) translateY(0)';
   clearTimeout(t._tmr);
-  t._tmr=setTimeout(function(){t.style.transform='translateX(-50%) translateY(120px)'},1600);
+  t._tmr=setTimeout(function(){t.style.transform='translateX(-50%) translateY(120px)'},ok===false?2600:1500);
+}
+
+// Vuelve a dibujar la pantalla activa cuando llegan datos nuevos del servidor.
+function refreshUI(){
+  var a=document.querySelector('.screen.active');if(!a)return;var id=a.id,c;
+  if(id==='parent')renderParent();
+  else if(id==='pchild'){c=S.children.find(function(x){return x.id===S.pcdChild});if(c)renderPCAll(c);else{goTo('parent');renderParent()}}
+  else if(id==='child-sel')renderChildSel();
+  else if(id==='child-det'){c=S.children.find(function(x){return x.id===S.curChild});if(c)renderCD(c);else{goTo('child-sel');renderChildSel()}}
+}
+
+function connectFirebase(){
+  try{
+    if(!firebase.apps||!firebase.apps.length)firebase.initializeApp(FIREBASE_CONFIG);
+    FB.db=firebase.firestore();
+    FB.ref=FB.db.collection('familias').doc(FAMILY_CODE);
+    MODE='firebase';
+    loadLocal(); // pinta algo de inmediato mientras llega el servidor
+    FB.unsub=FB.ref.onSnapshot(function(snap){
+      if(snap.exists){_applyingRemote=true;applyObj(snap.data());_applyingRemote=false;refreshUI()}
+      else{saveNow()} // primera vez con este código: siembra los datos actuales
+    },function(err){console.error('onSnapshot error:',err);showToast('Sin conexión a la nube',false)});
+    return true;
+  }catch(e){console.error('No se pudo conectar a Firebase:',e);MODE='local';loadLocal();return false}
+}
+
+function updateFamStatus(){
+  var el=document.getElementById('fam-status'),inp=document.getElementById('fam-input');
+  if(inp&&FAMILY_CODE&&!inp.value)inp.value=FAMILY_CODE;
+  if(!el)return;
+  if(!firebaseConfigured())el.innerHTML='\u26AA <b style="color:var(--gray)">Modo local</b> \u2014 sin sincronización. Configura Firebase para conectar varios dispositivos.';
+  else if(MODE==='firebase')el.innerHTML='\U0001F7E2 <b style="color:var(--green)">En línea</b> \u2014 familia: <b>'+FAMILY_CODE+'</b>';
+  else el.innerHTML='\U0001F7E1 Escribe tu código de familia y toca <b>Conectar</b>.';
+}
+
+function setFamily(code){
+  code=(code||'').trim();
+  if(!code){alert('Escribe un código de familia');return}
+  if(HAS_LS)localStorage.setItem(FAMILY_KEY,code);
+  location.reload();
+}
+
+function initStorage(){
+  FAMILY_CODE=(HAS_LS&&localStorage.getItem(FAMILY_KEY))||'';
+  if(firebaseConfigured()&&FAMILY_CODE)connectFirebase();
+  else{MODE='local';loadLocal()}
+  updateFamStatus();
 }
 
 function goTo(id){document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active')});document.getElementById(id).classList.add('active')}
@@ -463,12 +555,11 @@ document.getElementById('pc-pay').addEventListener('click',function(e){
 // Payment file upload
 document.getElementById('file-pay').addEventListener('change',function(){
   var file=this.files[0];this.value='';if(!file)return;
-  var reader=new FileReader();
-  reader.onload=function(ev){
+  compressImage(file,function(data){
     var c=S.children.find(function(x){return x.id===S.payTarget});if(!c)return;
-    c.paid=true;c.payProof=ev.target.result;c.payDate=new Date().toISOString();
+    c.paid=true;c.payProof=data;c.payDate=new Date().toISOString();
     renderPCAll(c);save();
-  };reader.readAsDataURL(file);
+  });
 });
 
 document.getElementById('pchild-back').addEventListener('click',function(){goTo('parent');renderParent()});
@@ -562,7 +653,7 @@ document.getElementById('child-det-back').addEventListener('click',function(){go
 document.getElementById('mp-cam').addEventListener('click',function(){closeM('m-photo');document.getElementById('file-cam').click()});
 document.getElementById('mp-gal').addEventListener('click',function(){closeM('m-photo');document.getElementById('file-gal').click()});
 document.getElementById('mp-cancel').addEventListener('click',function(){closeM('m-photo')});
-function handleFile(file){if(!file||!S.pendingKey)return;var reader=new FileReader();reader.onload=function(ev){var c=S.children.find(function(x){return x.id===S.curChild});if(!c)return;var k=S.pendingKey;if(!c.log[k])c.log[k]={done:false,hasPhoto:false,photoData:null,photoDate:null};c.log[k].done=true;c.log[k].hasPhoto=true;c.log[k].photoData=ev.target.result;c.log[k].photoDate=new Date().toISOString();S.pendingKey=null;renderCD(c);save()};reader.readAsDataURL(file)}
+function handleFile(file){if(!file||!S.pendingKey)return;compressImage(file,function(data){var c=S.children.find(function(x){return x.id===S.curChild});if(!c)return;var k=S.pendingKey;if(!c.log[k])c.log[k]={done:false,hasPhoto:false,photoData:null,photoDate:null};c.log[k].done=true;c.log[k].hasPhoto=true;c.log[k].photoData=data;c.log[k].photoDate=new Date().toISOString();S.pendingKey=null;renderCD(c);save()})}
 document.getElementById('file-cam').addEventListener('change',function(){handleFile(this.files[0]);this.value=''});
 document.getElementById('file-gal').addEventListener('change',function(){handleFile(this.files[0]);this.value=''});
 
@@ -676,30 +767,21 @@ document.getElementById('child-sel-list').addEventListener('click',function(e){
 document.getElementById('parent-back').addEventListener('click',function(){goTo('landing')});
 document.getElementById('child-sel-back').addEventListener('click',function(){goTo('landing')});
 
-/* ═══════════════ INICIALIZACIÓN Y GUARDADO ═══════════════ */
-// Botón Guardar manual (fuerza escritura inmediata + confirmación visual).
-document.getElementById('btn-save-now').addEventListener('click',function(){
-  var ok=saveNow();
-  showToast(ok?'Guardado':'No se pudo guardar',ok);
-});
-
-// Botón Reiniciar a datos de demo.
+/* ═══════════════ ARRANQUE Y CONTROLES DE GUARDADO ═══════════════ */
+document.getElementById('btn-save-now').addEventListener('click',function(){var ok=saveNow();showToast(ok?'Guardado':'No se pudo guardar',ok)});
+document.getElementById('fam-connect').addEventListener('click',function(){setFamily(document.getElementById('fam-input').value)});
+document.getElementById('fam-input').addEventListener('keydown',function(e){if(e.key==='Enter')setFamily(this.value)});
 document.getElementById('btn-reset-demo').addEventListener('click',function(){
-  if(confirm('Esto borrará TODOS tus cambios y volverá a los datos de demo. ¿Continuar?'))resetDemo();
+  if(!confirm('Esto borrará los datos de ESTA familia y volverá a la demo. ¿Continuar?'))return;
+  if(MODE==='firebase'&&FB.ref){FB.ref.delete().catch(function(){})}
+  if(HAS_LS)localStorage.removeItem(STORAGE_KEY);
+  location.reload();
 });
-
-// Si el navegador bloquea el almacenamiento, avísale al usuario.
-if(!HAS_STORAGE){
-  var note=document.getElementById('cfg-storage-note');
-  if(note){note.innerHTML='<span style="color:var(--red)">⚠ Tu navegador está bloqueando el almacenamiento (¿modo privado/incógnito?). Los cambios no se guardarán al recargar.</span>'}
-}
-
-// Red de seguridad: guarda al cambiar de pestaña o cerrar la página.
+if(!HAS_LS){var _n=document.getElementById('cfg-storage-note');if(_n)_n.innerHTML='<span style="color:var(--red)">⚠ Tu navegador bloquea el almacenamiento (¿modo incógnito?). No se guardarán cambios.</span>'}
 document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden')saveNow()});
 window.addEventListener('pagehide',function(){saveNow()});
 
-// Cargar datos guardados al arrancar (antes de cualquier render).
-load();
+initStorage();
 </script>
 </body>
 </html>
