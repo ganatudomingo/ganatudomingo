@@ -11,6 +11,8 @@
 <meta name="apple-mobile-web-app-title" content="Gana Tu Domingo">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="description" content="Cumple tus tareas, sube tu evidencia y gana tu domingo esta semana.">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
 :root{--navy:#0f1c2e;--navy-mid:#1a2e47;--navy-light:#243d5c;--gold:#f5c842;--gold-dark:#d4a825;--white:#fff;--green:#3ecf8e;--red:#f06565;--gray:#8ba0b8;--orange:#f0a045;--blue:#4da6ff}
@@ -148,6 +150,17 @@ body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--white);
   <div class="coin-icon">🪙</div>
   <h1 class="app-title">Gana Tu<br><span>Domingo</span></h1>
   <p class="app-sub">Cumple tus tareas, sube tu evidencia y gana tu domingo esta semana.</p>
+  <div id="connect-box" style="width:100%;max-width:380px;margin-bottom:24px">
+    <div class="card" style="margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <span id="conn-dot" style="width:10px;height:10px;border-radius:50%;background:var(--gray);flex-shrink:0"></span>
+        <span id="conn-status" style="font-size:13px;color:var(--gray)">Modo local (este dispositivo)</span>
+      </div>
+      <div class="fg" style="margin-bottom:10px"><label class="fl">Código de familia</label><input class="fi" id="family-code" placeholder="ej: garcia-7h3k" autocomplete="off"></div>
+      <button class="btn btn-g btn-b" id="btn-connect">🔗 Conectar en línea</button>
+      <p style="font-size:11px;color:var(--gray);margin-top:8px;text-align:center">Todos los dispositivos de la familia usan el mismo código.</p>
+    </div>
+  </div>
   <div class="role-cards">
     <div class="role-card" id="go-parent"><div class="ri">👨‍👩‍👧</div><h3>Soy Papá / Mamá</h3><p>Configurar tareas, hijos y domingos</p></div>
     <div class="role-card" id="go-child"><div class="ri">⭐</div><h3>Soy Hijo</h3><p>Ver mis tareas y cuánto llevo ganado</p></div>
@@ -155,7 +168,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--white);
 </div>
 
 <div id="parent" class="screen">
-  <div class="topbar"><button class="btn-back" id="parent-back">←</button><div class="topbar-title">Panel Familiar</div><span class="badge badge-p">Papás</span></div>
+  <div class="topbar"><button class="btn-back" id="parent-back">←</button><div class="topbar-title">Panel Familiar</div><button class="btn btn-g btn-s" id="btn-save-now" style="padding:6px 12px">💾</button></div>
   <div class="inner">
     <div class="tabs" id="parent-tabs">
       <button class="tab on" data-ptab="hijos">👶 Hijos</button>
@@ -271,6 +284,142 @@ var S={
   selEmoji:'😊',selDays:[],selChildIds:[],pendingKey:null,filterDay:null,payTarget:null
 };
 
+// ═══════════════════════════════════════════
+// FIREBASE CONFIG — pega aquí tu configuración
+// ═══════════════════════════════════════════
+var FIREBASE_CONFIG = {
+  apiKey: "TU_API_KEY",
+  authDomain: "TU_PROYECTO.firebaseapp.com",
+  projectId: "TU_PROYECTO",
+  storageBucket: "TU_PROYECTO.appspot.com",
+  messagingSenderId: "TU_SENDER_ID",
+  appId: "TU_APP_ID"
+};
+
+// ═══════════════════════════════════════════
+// PERSISTENCE LAYER (Firebase + localStorage)
+// ═══════════════════════════════════════════
+var DB=null, FAMILY_CODE='', ONLINE=false, UNSUB=null, SUPPRESS=false, SAVE_TIMER=null;
+
+function fbReady(){
+  return FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey!=='TU_API_KEY' && typeof firebase!=='undefined';
+}
+
+function initFirebase(){
+  if(!fbReady())return false;
+  try{
+    if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    DB=firebase.firestore();
+    return true;
+  }catch(e){console.log('FB init error',e);return false}
+}
+
+// Serialize only persistent data (not UI state)
+function serialize(){
+  return {
+    globalBase:S.globalBase,baseGrade:S.baseGrade,weekNum:S.weekNum,parentPin:S.parentPin,
+    children:S.children,tasks:S.tasks,history:S.history,nid:S.nid,ntid:S.ntid
+  };
+}
+function applyData(d){
+  if(!d)return;
+  S.globalBase=d.globalBase!=null?d.globalBase:1000;
+  S.baseGrade=d.baseGrade!=null?d.baseGrade:8;
+  S.weekNum=d.weekNum!=null?d.weekNum:1;
+  S.parentPin=d.parentPin||'1234';
+  S.children=d.children||[];
+  S.tasks=d.tasks||[];
+  S.history=d.history||[];
+  S.nid=d.nid!=null?d.nid:(S.children.reduce(function(m,c){return Math.max(m,c.id)},0)+1);
+  S.ntid=d.ntid!=null?d.ntid:(S.tasks.reduce(function(m,t){return Math.max(m,t.id)},0)+1);
+}
+
+function setConnUI(){
+  var dot=document.getElementById('conn-dot'),st=document.getElementById('conn-status');
+  if(!dot)return;
+  if(ONLINE){dot.style.background='var(--green)';st.textContent='En línea · '+FAMILY_CODE;st.style.color='var(--green)';
+    document.getElementById('family-code').value=FAMILY_CODE;
+    document.getElementById('btn-connect').textContent='✓ Conectado';
+  }else{dot.style.background='var(--gray)';st.textContent='Modo local (este dispositivo)';st.style.color='var(--gray)';
+    document.getElementById('btn-connect').textContent='🔗 Conectar en línea';
+  }
+}
+
+function toast(msg){
+  var t=document.getElementById('app-toast');
+  if(!t){t=document.createElement('div');t.id='app-toast';
+    t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--navy-mid);border:1.5px solid var(--gold);color:var(--white);padding:12px 24px;border-radius:30px;font-size:14px;font-weight:600;z-index:400;opacity:0;transition:opacity .3s;box-shadow:0 8px 30px rgba(0,0,0,.4)';
+    document.body.appendChild(t);}
+  t.textContent=msg;t.style.opacity='1';
+  clearTimeout(t._timer);t._timer=setTimeout(function(){t.style.opacity='0'},2000);
+}
+
+// Save (debounced)
+function save(){
+  saveLocal();
+  if(ONLINE&&DB){clearTimeout(SAVE_TIMER);SAVE_TIMER=setTimeout(saveCloud,600)}
+}
+// Save immediately (critical moments)
+function saveNow(){
+  saveLocal();
+  if(ONLINE&&DB)saveCloud();
+}
+function saveLocal(){
+  try{localStorage.setItem('gtd_data',JSON.stringify(serialize()));
+    if(FAMILY_CODE)localStorage.setItem('gtd_family',FAMILY_CODE);
+  }catch(e){}
+}
+function saveCloud(){
+  if(!DB||!FAMILY_CODE)return;
+  SUPPRESS=true;
+  DB.collection('familias').doc(FAMILY_CODE).set(serialize()).then(function(){
+    setTimeout(function(){SUPPRESS=false},400);
+  }).catch(function(e){console.log('save err',e);SUPPRESS=false;toast('⚠ Error al guardar')});
+}
+
+function loadLocal(){
+  try{
+    var raw=localStorage.getItem('gtd_data');
+    if(raw){applyData(JSON.parse(raw));return true}
+  }catch(e){}
+  return false;
+}
+
+// Connect to family (online)
+function connectFamily(code){
+  code=(code||'').trim().toLowerCase().replace(/\s+/g,'-');
+  if(!code){toast('Escribe un código de familia');return}
+  if(!fbReady()){toast('⚠ Firebase no configurado');return}
+  if(!DB&&!initFirebase()){toast('⚠ No se pudo conectar');return}
+  FAMILY_CODE=code;
+  var ref=DB.collection('familias').doc(code);
+  ref.get().then(function(snap){
+    if(!snap.exists){
+      // New family — push current local data as seed
+      ref.set(serialize());
+    }
+    // Subscribe to realtime updates
+    if(UNSUB)UNSUB();
+    UNSUB=ref.onSnapshot(function(doc){
+      if(SUPPRESS)return;
+      if(doc.exists){applyData(doc.data());saveLocal();reRenderCurrent()}
+    },function(e){console.log('snap err',e)});
+    ONLINE=true;setConnUI();saveLocal();
+    toast('🟢 Conectado: '+code);
+  }).catch(function(e){console.log('connect err',e);toast('⚠ Error de conexión')});
+}
+
+// Re-render whatever screen is active
+function reRenderCurrent(){
+  var active=document.querySelector('.screen.active');
+  if(!active)return;
+  var id=active.id;
+  if(id==='parent')renderParent();
+  else if(id==='pchild'){var c=S.children.find(function(x){return x.id===S.pcdChild});if(c)renderPCAll(c);else{goTo('parent');renderParent()}}
+  else if(id==='child-sel')renderChildSel();
+  else if(id==='child-det'){var c2=S.children.find(function(x){return x.id===S.curChild});if(c2)renderCD(c2);else{goTo('child-sel');renderChildSel()}}
+}
+
 function goTo(id){document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active')});document.getElementById(id).classList.add('active')}
 function openM(id){document.getElementById(id).classList.add('open')}
 function closeM(id){document.getElementById(id).classList.remove('open')}
@@ -323,9 +472,9 @@ function renderHistParent(){
 document.getElementById('parent-tabs').addEventListener('click',function(e){var tab=e.target.closest('.tab');if(!tab)return;var w=tab.getAttribute('data-ptab');document.querySelectorAll('#parent-tabs .tab').forEach(function(t){t.classList.remove('on')});tab.classList.add('on');
   ['hijos','tareas','historial','config'].forEach(function(t){document.getElementById('pt-'+t).style.display=t===w?'':'none'})});
 document.getElementById('children-list').addEventListener('click',function(e){var card=e.target.closest('.ccard');if(!card)return;openPChildDetail(parseInt(card.getAttribute('data-cid')))});
-document.getElementById('tasks-list').addEventListener('click',function(e){var btn=e.target.closest('[data-rmtask]');if(!btn)return;S.tasks=S.tasks.filter(function(t){return t.id!==parseInt(btn.getAttribute('data-rmtask'))});renderTasks()});
-document.getElementById('cfg-base').addEventListener('input',function(){S.globalBase=parseFloat(this.value)||1000});
-document.getElementById('cfg-grade').addEventListener('input',function(){S.baseGrade=parseFloat(this.value)||8});
+document.getElementById('tasks-list').addEventListener('click',function(e){var btn=e.target.closest('[data-rmtask]');if(!btn)return;S.tasks=S.tasks.filter(function(t){return t.id!==parseInt(btn.getAttribute('data-rmtask'))});save();renderTasks()});
+document.getElementById('cfg-base').addEventListener('input',function(){S.globalBase=parseFloat(this.value)||1000;save()});
+document.getElementById('cfg-grade').addEventListener('input',function(){S.baseGrade=parseFloat(this.value)||8;save()});
 
 // Close week
 document.getElementById('btn-close-week').addEventListener('click',function(){
@@ -335,7 +484,7 @@ document.getElementById('btn-close-week').addEventListener('click',function(){
   S.history.push(wk);S.weekNum++;
   // Reset children logs/payments
   S.children.forEach(function(c){c.log={};c.ext={};c.paid=false;c.payProof=null;c.payDate=null});
-  renderParent();alert('Semana cerrada y archivada.');
+  saveNow();renderParent();alert('Semana cerrada y archivada.');
 });
 
 // ═══ PARENT CHILD DETAIL ═══
@@ -392,17 +541,17 @@ function renderPCTasks(c){
 }
 
 // Events parent child
-document.getElementById('pc-grade').addEventListener('input',function(){var c=S.children.find(function(x){return x.id===S.pcdChild});if(!c)return;c.grade=this.value===''?null:parseFloat(this.value);var bg=S.baseGrade||8;document.getElementById('pc-grade-fx').textContent=c.grade!=null?(Math.round((c.grade/bg-1)*100)>=0?'+':'')+(Math.round((c.grade/bg-1)*100))+'%':'Ingresa calificación.';renderPCMeter(c)});
-document.getElementById('pc-custom-base').addEventListener('input',function(){var c=S.children.find(function(x){return x.id===S.pcdChild});if(!c)return;c.customBase=this.value===''?null:parseFloat(this.value);renderPCMeter(c)});
-document.getElementById('pc-remove').addEventListener('click',function(){if(!confirm('¿Eliminar?'))return;S.children=S.children.filter(function(c){return c.id!==S.pcdChild});S.tasks.forEach(function(t){t.childIds=t.childIds.filter(function(id){return id!==S.pcdChild})});goTo('parent');renderParent()});
-document.getElementById('pc-days-extend').addEventListener('click',function(e){var dp=e.target.closest('[data-extday]');if(!dp)return;var c=S.children.find(function(x){return x.id===S.pcdChild});if(!c)return;var di=parseInt(dp.getAttribute('data-extday'));if(di>=TODAY_IDX)return;var isE=c.ext[di]&&c.ext[di]>Date.now();if(isE)delete c.ext[di];else c.ext[di]=Date.now()+86400000;renderPCAll(c)});
+document.getElementById('pc-grade').addEventListener('input',function(){var c=S.children.find(function(x){return x.id===S.pcdChild});if(!c)return;c.grade=this.value===''?null:parseFloat(this.value);var bg=S.baseGrade||8;document.getElementById('pc-grade-fx').textContent=c.grade!=null?(Math.round((c.grade/bg-1)*100)>=0?'+':'')+(Math.round((c.grade/bg-1)*100))+'%':'Ingresa calificación.';save();renderPCMeter(c)});
+document.getElementById('pc-custom-base').addEventListener('input',function(){var c=S.children.find(function(x){return x.id===S.pcdChild});if(!c)return;c.customBase=this.value===''?null:parseFloat(this.value);save();renderPCMeter(c)});
+document.getElementById('pc-remove').addEventListener('click',function(){if(!confirm('¿Eliminar?'))return;S.children=S.children.filter(function(c){return c.id!==S.pcdChild});S.tasks.forEach(function(t){t.childIds=t.childIds.filter(function(id){return id!==S.pcdChild})});saveNow();goTo('parent');renderParent()});
+document.getElementById('pc-days-extend').addEventListener('click',function(e){var dp=e.target.closest('[data-extday]');if(!dp)return;var c=S.children.find(function(x){return x.id===S.pcdChild});if(!c)return;var di=parseInt(dp.getAttribute('data-extday'));if(di>=TODAY_IDX)return;var isE=c.ext[di]&&c.ext[di]>Date.now();if(isE)delete c.ext[di];else c.ext[di]=Date.now()+86400000;saveNow();renderPCAll(c)});
 document.getElementById('pc-tasks').addEventListener('click',function(e){var pz=e.target.closest('[data-viewkey]');if(!pz)return;showPhoto(pz.getAttribute('data-viewkey'),parseInt(pz.getAttribute('data-viewchild')),pz.getAttribute('data-viewname'),pz.getAttribute('data-viewdel')==='1')});
 
 // Payment events (delegated on pc-pay)
 document.getElementById('pc-pay').addEventListener('click',function(e){
   var c=S.children.find(function(x){return x.id===S.pcdChild});if(!c)return;
-  if(e.target.closest('#pc-mark-paid')){c.paid=true;c.payDate=new Date().toISOString();renderPCAll(c);return}
-  if(e.target.closest('#pc-unmark-paid')){c.paid=false;c.payProof=null;c.payDate=null;renderPCAll(c);return}
+  if(e.target.closest('#pc-mark-paid')){c.paid=true;c.payDate=new Date().toISOString();saveNow();renderPCAll(c);return}
+  if(e.target.closest('#pc-unmark-paid')){c.paid=false;c.payProof=null;c.payDate=null;saveNow();renderPCAll(c);return}
   if(e.target.closest('#pc-pay-upload')){S.payTarget=c.id;document.getElementById('file-pay').click();return}
   if(e.target.closest('#pc-pay-proof')){
     if(!c.payProof)return;
@@ -410,7 +559,7 @@ document.getElementById('pc-pay').addEventListener('click',function(e){
     document.getElementById('mv-img').src=c.payProof;
     document.getElementById('mv-meta').textContent=c.payDate?'Pagado el '+new Date(c.payDate).toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'}):'';
     document.getElementById('mv-actions').innerHTML='<button class="btn btn-d btn-b" id="mv-del-pay">🗑 Eliminar comprobante</button>';
-    document.getElementById('mv-del-pay').addEventListener('click',function(){c.payProof=null;closeM('m-viewer');renderPCAll(c)});
+    document.getElementById('mv-del-pay').addEventListener('click',function(){c.payProof=null;saveNow();closeM('m-viewer');renderPCAll(c)});
     openM('m-viewer');
   }
 });
@@ -422,7 +571,7 @@ document.getElementById('file-pay').addEventListener('change',function(){
   reader.onload=function(ev){
     var c=S.children.find(function(x){return x.id===S.payTarget});if(!c)return;
     c.paid=true;c.payProof=ev.target.result;c.payDate=new Date().toISOString();
-    renderPCAll(c);
+    saveNow();renderPCAll(c);
   };reader.readAsDataURL(file);
 });
 
@@ -488,7 +637,7 @@ function renderCDHist(c){
 document.getElementById('cd-strip').addEventListener('click',function(e){var pill=e.target.closest('.dpill');if(!pill)return;var di=parseInt(pill.getAttribute('data-fday'));S.filterDay=S.filterDay===di?null:di;var c=S.children.find(function(x){return x.id===S.curChild});if(c)renderCD(c)});
 document.getElementById('cd-tasks').addEventListener('click',function(e){
   var toggle=e.target.closest('[data-togglekey]');
-  if(toggle){var k=toggle.getAttribute('data-togglekey'),c=S.children.find(function(x){return x.id===S.curChild});if(!c)return;if(!c.log[k])c.log[k]={done:false,hasPhoto:false,photoData:null,photoDate:null};c.log[k].done=!c.log[k].done;renderCD(c);return}
+  if(toggle){var k=toggle.getAttribute('data-togglekey'),c=S.children.find(function(x){return x.id===S.curChild});if(!c)return;if(!c.log[k])c.log[k]={done:false,hasPhoto:false,photoData:null,photoDate:null};c.log[k].done=!c.log[k].done;saveNow();renderCD(c);return}
   var upload=e.target.closest('[data-uploadkey]');
   if(upload){S.pendingKey=upload.getAttribute('data-uploadkey');document.getElementById('mp-task').textContent='📋 '+upload.getAttribute('data-uploadname');openM('m-photo');return}
   var view=e.target.closest('[data-cviewkey]');
@@ -517,7 +666,7 @@ document.getElementById('child-det-back').addEventListener('click',function(){go
 document.getElementById('mp-cam').addEventListener('click',function(){closeM('m-photo');document.getElementById('file-cam').click()});
 document.getElementById('mp-gal').addEventListener('click',function(){closeM('m-photo');document.getElementById('file-gal').click()});
 document.getElementById('mp-cancel').addEventListener('click',function(){closeM('m-photo')});
-function handleFile(file){if(!file||!S.pendingKey)return;var reader=new FileReader();reader.onload=function(ev){var c=S.children.find(function(x){return x.id===S.curChild});if(!c)return;var k=S.pendingKey;if(!c.log[k])c.log[k]={done:false,hasPhoto:false,photoData:null,photoDate:null};c.log[k].done=true;c.log[k].hasPhoto=true;c.log[k].photoData=ev.target.result;c.log[k].photoDate=new Date().toISOString();S.pendingKey=null;renderCD(c)};reader.readAsDataURL(file)}
+function handleFile(file){if(!file||!S.pendingKey)return;var reader=new FileReader();reader.onload=function(ev){var c=S.children.find(function(x){return x.id===S.curChild});if(!c)return;var k=S.pendingKey;if(!c.log[k])c.log[k]={done:false,hasPhoto:false,photoData:null,photoDate:null};c.log[k].done=true;c.log[k].hasPhoto=true;c.log[k].photoData=ev.target.result;c.log[k].photoDate=new Date().toISOString();S.pendingKey=null;saveNow();renderCD(c)};reader.readAsDataURL(file)}
 document.getElementById('file-cam').addEventListener('change',function(){handleFile(this.files[0]);this.value=''});
 document.getElementById('file-gal').addEventListener('change',function(){handleFile(this.files[0]);this.value=''});
 
@@ -526,7 +675,7 @@ function showPhoto(key,childId,taskName,canDel){
   document.getElementById('mv-title').textContent='📷 '+taskName;document.getElementById('mv-img').src=entry.photoData;
   var d=entry.photoDate?new Date(entry.photoDate):null;document.getElementById('mv-meta').textContent=d?d.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'})+' '+d.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}):'';
   var act=document.getElementById('mv-actions');
-  if(canDel){act.innerHTML='<button class="btn btn-d btn-b" id="mv-del">🗑 Eliminar</button>';document.getElementById('mv-del').addEventListener('click',function(){entry.hasPhoto=false;entry.done=false;entry.photoData=null;entry.photoDate=null;closeM('m-viewer');renderPCAll(c)})}
+  if(canDel){act.innerHTML='<button class="btn btn-d btn-b" id="mv-del">🗑 Eliminar</button>';document.getElementById('mv-del').addEventListener('click',function(){entry.hasPhoto=false;entry.done=false;entry.photoData=null;entry.photoDate=null;saveNow();closeM('m-viewer');renderPCAll(c)})}
   else act.innerHTML='';openM('m-viewer');
 }
 document.getElementById('mv-close').addEventListener('click',function(){closeM('m-viewer')});
@@ -536,7 +685,7 @@ function buildEmojiPicker(){document.getElementById('epick').innerHTML=EMOJIS.ma
 document.getElementById('epick').addEventListener('click',function(e){var opt=e.target.closest('.eopt');if(!opt)return;document.querySelectorAll('.eopt').forEach(function(o){o.classList.remove('sel')});opt.classList.add('sel');S.selEmoji=opt.textContent.trim()});
 document.getElementById('btn-add-child').addEventListener('click',function(){buildEmojiPicker();openM('m-child')});
 document.getElementById('mc-cancel').addEventListener('click',function(){closeM('m-child')});
-document.getElementById('mc-save').addEventListener('click',function(){var name=document.getElementById('nc-name').value.trim(),age=parseInt(document.getElementById('nc-age').value)||0,pin=document.getElementById('nc-pin').value.trim();if(!name){alert('Nombre');return}if(!pin||pin.length!==4||!/^\d{4}$/.test(pin)){alert('La contraseña debe ser de 4 dígitos');return}S.children.push({id:S.nid++,name:name,age:age,emoji:S.selEmoji,customBase:null,grade:null,log:{},ext:{},paid:false,payProof:null,payDate:null,pin:pin});closeM('m-child');document.getElementById('nc-name').value='';document.getElementById('nc-age').value='';document.getElementById('nc-pin').value='';renderChildren()});
+document.getElementById('mc-save').addEventListener('click',function(){var name=document.getElementById('nc-name').value.trim(),age=parseInt(document.getElementById('nc-age').value)||0,pin=document.getElementById('nc-pin').value.trim();if(!name){alert('Nombre');return}if(!pin||pin.length!==4||!/^\d{4}$/.test(pin)){alert('La contraseña debe ser de 4 dígitos');return}S.children.push({id:S.nid++,name:name,age:age,emoji:S.selEmoji,customBase:null,grade:null,log:{},ext:{},paid:false,payProof:null,payDate:null,pin:pin});closeM('m-child');document.getElementById('nc-name').value='';document.getElementById('nc-age').value='';document.getElementById('nc-pin').value='';saveNow();renderChildren()});
 
 // ═══ ADD TASK ═══
 function buildTaskForm(){S.selDays=[];S.selChildIds=[];document.getElementById('nt-days').innerHTML=DAYS.map(function(d,i){return '<span class="dpick" data-di="'+i+'">'+d+'</span>'}).join('');var cEl=document.getElementById('nt-children');if(!S.children.length){cEl.innerHTML='<span style="font-size:12px;color:var(--red)">Agrega un hijo primero</span>';return}cEl.innerHTML=S.children.map(function(c){return '<span class="cpick" data-cpid="'+c.id+'">'+c.emoji+' '+c.name+'</span>'}).join('')}
@@ -544,7 +693,7 @@ document.getElementById('nt-days').addEventListener('click',function(e){var dp=e
 document.getElementById('nt-children').addEventListener('click',function(e){var cp=e.target.closest('.cpick');if(!cp)return;var cid=parseInt(cp.getAttribute('data-cpid')),idx=S.selChildIds.indexOf(cid);if(idx>=0){S.selChildIds.splice(idx,1);cp.classList.remove('on')}else{S.selChildIds.push(cid);cp.classList.add('on')}});
 document.getElementById('btn-add-task').addEventListener('click',function(){buildTaskForm();openM('m-task')});
 document.getElementById('mt-cancel').addEventListener('click',function(){closeM('m-task')});
-document.getElementById('mt-save').addEventListener('click',function(){var name=document.getElementById('nt-name').value.trim(),type=document.getElementById('nt-type').value,val=parseFloat(document.getElementById('nt-val').value),photo=document.getElementById('nt-photo').value==='yes';if(!name||!S.selDays.length||!val){alert('Completa los campos');return}if(!S.selChildIds.length){alert('Selecciona al menos un hijo');return}S.tasks.push({id:S.ntid++,name:name,childIds:S.selChildIds.slice(),days:S.selDays.slice().sort(),type:type,value:val,photo:photo});closeM('m-task');document.getElementById('nt-name').value='';document.getElementById('nt-val').value='';renderTasks()});
+document.getElementById('mt-save').addEventListener('click',function(){var name=document.getElementById('nt-name').value.trim(),type=document.getElementById('nt-type').value,val=parseFloat(document.getElementById('nt-val').value),photo=document.getElementById('nt-photo').value==='yes';if(!name||!S.selDays.length||!val){alert('Completa los campos');return}if(!S.selChildIds.length){alert('Selecciona al menos un hijo');return}S.tasks.push({id:S.ntid++,name:name,childIds:S.selChildIds.slice(),days:S.selDays.slice().sort(),type:type,value:val,photo:photo});closeM('m-task');document.getElementById('nt-name').value='';document.getElementById('nt-val').value='';saveNow();renderTasks()});
 
 // ═══ PIN SYSTEM ═══
 var pinBuffer='',pinCallback=null,pinLocked=false;
@@ -588,7 +737,7 @@ document.querySelector('.pin-pad').addEventListener('click',function(e){
 document.getElementById('btn-save-parent-pin').addEventListener('click',function(){
   var val=document.getElementById('cfg-parent-pin').value.trim();
   if(!val||val.length!==4||!/^\d{4}$/.test(val)){alert('Debe ser 4 dígitos');return}
-  S.parentPin=val;document.getElementById('cfg-parent-pin').value='';alert('Contraseña de papás actualizada');
+  S.parentPin=val;saveNow();document.getElementById('cfg-parent-pin').value='';alert('Contraseña de papás actualizada');
 });
 
 // Save child PIN
@@ -596,7 +745,7 @@ document.getElementById('pc-save-child-pin').addEventListener('click',function()
   var c=S.children.find(function(x){return x.id===S.pcdChild});if(!c)return;
   var val=document.getElementById('pc-child-pin').value.trim();
   if(!val||val.length!==4||!/^\d{4}$/.test(val)){alert('Debe ser 4 dígitos');return}
-  c.pin=val;document.getElementById('pc-child-pin').value='';alert('Contraseña de '+c.name+' actualizada');
+  c.pin=val;saveNow();document.getElementById('pc-child-pin').value='';alert('Contraseña de '+c.name+' actualizada');
 });
 
 // Show child pin on detail open
@@ -647,7 +796,27 @@ document.getElementById('child-sel-back').addEventListener('click',function(){go
 <script>
 // ═══ PWA: Service Worker + Install Prompt ═══
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('sw.js').catch(function(e){console.log('SW reg failed:',e)});
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('sw.js').then(function(reg){
+      // Force check for updates so app never gets stuck on old cache
+      reg.update();
+      reg.addEventListener('updatefound',function(){
+        var nw=reg.installing;
+        if(!nw)return;
+        nw.addEventListener('statechange',function(){
+          if(nw.state==='installed'&&navigator.serviceWorker.controller){
+            // New version ready - reload to use it
+            nw.postMessage('skipWaiting');
+          }
+        });
+      });
+    }).catch(function(e){console.log('SW reg failed:',e)});
+    // Reload once when the new SW takes control
+    var refreshing=false;
+    navigator.serviceWorker.addEventListener('controllerchange',function(){
+      if(refreshing)return;refreshing=true;window.location.reload();
+    });
+  });
 }
 
 var deferredPrompt=null;
@@ -685,6 +854,36 @@ if(isIOS&&!isStandalone){
   b.querySelector('.install-yes').addEventListener('click',function(){b.classList.remove('show')});
   setTimeout(function(){b.classList.add('show')},2000);
 }
+
+// ═══ PERSISTENCE INIT ═══
+// 1. Load local data first (instant)
+loadLocal();
+
+// 2. Wire connect button
+document.getElementById('btn-connect').addEventListener('click',function(){
+  connectFamily(document.getElementById('family-code').value);
+});
+
+// 3. Wire save button
+document.getElementById('btn-save-now').addEventListener('click',function(){
+  saveNow();toast('✓ Guardado');
+});
+
+// 4. Auto-reconnect if family code was saved
+(function(){
+  var savedCode='';
+  try{savedCode=localStorage.getItem('gtd_family')||''}catch(e){}
+  if(savedCode&&fbReady()){
+    document.getElementById('family-code').value=savedCode;
+    connectFamily(savedCode);
+  }else{
+    setConnUI();
+  }
+})();
+
+// 5. Safety saves
+window.addEventListener('pagehide',function(){saveLocal()});
+document.addEventListener('visibilitychange',function(){if(document.hidden)saveLocal()});
 </script>
 </body>
 </html>
