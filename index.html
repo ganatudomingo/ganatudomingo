@@ -86,8 +86,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--white);
 .btn-green{background:rgba(62,207,142,.12);border:1px solid var(--green);color:var(--green)}
 .btn-b{width:100%}.btn-s{padding:8px 16px;font-size:13px}
 .mov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;align-items:flex-end;justify-content:center}
+.mov-center{align-items:center}
+.modal-pin{border-radius:24px;max-width:360px;margin:16px;max-height:92vh;max-height:92dvh}
 .mov.open{display:flex}
-.modal{background:var(--navy-mid);border-radius:24px 24px 0 0;padding:24px 20px 36px;width:100%;max-width:640px;max-height:85vh;overflow-y:auto;animation:sUp .25s ease}
+.modal{background:var(--navy-mid);border-radius:24px 24px 0 0;padding:24px 20px 36px;width:100%;max-width:640px;max-height:85vh;max-height:85dvh;overflow-y:auto;animation:sUp .25s ease}
 @keyframes sUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 .mhandle{width:40px;height:4px;background:var(--navy-light);border-radius:2px;margin:0 auto 20px}
 .mtitle{font-family:'Syne',sans-serif;font-weight:800;font-size:20px;margin-bottom:20px}
@@ -121,13 +123,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--white);
 .hist-badge.paid{background:rgba(62,207,142,.12);color:var(--green)}.hist-badge.pend{background:rgba(240,101,101,.12);color:var(--red)}
 /* PIN */
 .pin-wrap{text-align:center;padding:8px 0}
-.pin-dots{display:flex;gap:12px;justify-content:center;margin:20px 0 8px}
+.pin-dots{display:flex;gap:12px;justify-content:center;margin:14px 0 8px}
 .pin-dot{width:18px;height:18px;border-radius:50%;border:2px solid var(--navy-light);transition:all .2s}
 .pin-dot.filled{background:var(--gold);border-color:var(--gold)}
 .pin-dot.wrong{border-color:var(--red);background:var(--red);animation:shake .4s}
 @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
-.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:260px;margin:0 auto}
-.pin-key{background:var(--navy);border:1.5px solid var(--navy-light);border-radius:14px;padding:16px;font-family:'Syne',sans-serif;font-weight:700;font-size:22px;color:var(--white);cursor:pointer;transition:all .15s;text-align:center}
+.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:260px;margin:0 auto;padding-bottom:8px}
+.pin-key{background:var(--navy);border:1.5px solid var(--navy-light);border-radius:14px;padding:14px;font-family:'Syne',sans-serif;font-weight:700;font-size:22px;color:var(--white);cursor:pointer;transition:all .15s;text-align:center;-webkit-user-select:none;user-select:none}
 .pin-key:hover{border-color:var(--gold);color:var(--gold)}.pin-key:active{background:var(--navy-light)}
 .pin-key.del{font-size:16px;color:var(--gray)}
 .pin-error{font-size:13px;color:var(--red);margin-top:8px;min-height:20px}
@@ -251,7 +253,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--white);
 <input type="file" id="file-pay" accept="image/*">
 
 <!-- PIN Modal -->
-<div class="mov" id="m-pin"><div class="modal">
+<div class="mov mov-center" id="m-pin"><div class="modal modal-pin">
   <div class="mhandle"></div>
   <div class="pin-wrap">
     <div class="pin-icon" id="pin-icon">🔒</div>
