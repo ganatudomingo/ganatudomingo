@@ -516,6 +516,37 @@ function calcEarned(c){
 function calcMax(c){var base=c.customBase!=null?c.customBase:S.globalBase,bg=S.baseGrade||8,gm=(c.grade!=null&&c.grade!=='')?parseFloat(c.grade)/bg:1,bm=0;tasksFor(c.id).filter(function(t){return t.type==='bonus'}).forEach(function(t){bm+=t.days.length*t.value});return Math.round(base*gm+bm)}
 function weekLabel(){var n=new Date(),mon=new Date(n);mon.setDate(n.getDate()-((n.getDay()+6)%7));var sun=new Date(mon);sun.setDate(mon.getDate()+6);var fmt=function(d){return d.getDate()+'/'+(d.getMonth()+1)};return fmt(mon)+' – '+fmt(sun)}
 
+// Find the most recent activity date in current children data (photos, payments)
+// Returns a Monday string for the week that data belongs to, or null if no activity
+function inferDataWeek(){
+  var latest=null;
+  S.children.forEach(function(c){
+    // Check task photo dates
+    for(var k in c.log){
+      var e=c.log[k];
+      if(e&&e.photoDate){var t=new Date(e.photoDate).getTime();if(!latest||t>latest)latest=t}
+      if(e&&e.done){/* done but no date — can't infer, skip */}
+    }
+    // Check payment date
+    if(c.payDate){var pt=new Date(c.payDate).getTime();if(!latest||pt>latest)latest=pt}
+  });
+  if(!latest)return null;
+  var n=new Date(latest);
+  var mon=new Date(n.getFullYear(),n.getMonth(),n.getDate());
+  mon.setDate(mon.getDate()-((n.getDay()+6)%7));
+  return mon.getFullYear()+'-'+String(mon.getMonth()+1).padStart(2,'0')+'-'+String(mon.getDate()).padStart(2,'0');
+}
+
+// Does the current week have any logged activity? (photos, done tasks, payments)
+function hasWeekActivity(){
+  for(var i=0;i<S.children.length;i++){
+    var c=S.children[i];
+    if(c.paid||c.payProof)return true;
+    for(var k in c.log){var e=c.log[k];if(e&&(e.done||e.hasPhoto))return true}
+  }
+  return false;
+}
+
 // Get the Monday (start) of the current week as YYYY-MM-DD
 function currentMonday(){
   var n=new Date();
@@ -547,17 +578,32 @@ function archiveCurrentWeek(prevMondayStr){
 function checkWeekRollover(){
   var thisMon=currentMonday();
   if(!S.weekStart){
-    // First time — just set the marker, don't archive
-    S.weekStart=thisMon;
+    // No marker yet (old data from before this feature existed).
+    // Try to infer which week the existing data belongs to.
+    var dataWeek=inferDataWeek();
+    if(dataWeek&&dataWeek<thisMon&&hasWeekActivity()){
+      // Existing data is from a PAST week — archive it now
+      archiveCurrentWeek(dataWeek);
+      S.weekStart=thisMon;
+      return true;
+    }
+    // No old activity, or data is from current week — just set marker
+    S.weekStart=dataWeek&&dataWeek>=thisMon?dataWeek:thisMon;
+    if(S.weekStart>thisMon)S.weekStart=thisMon;
     return false;
   }
   if(S.weekStart!==thisMon){
     // A new week (or several) has started — archive the previous one
     var archived=false;
-    // Guard against weird future dates / only archive once per real week
     if(thisMon>S.weekStart){
-      archiveCurrentWeek(S.weekStart);
-      archived=true;
+      // Only archive if there was activity to preserve
+      if(hasWeekActivity()){
+        archiveCurrentWeek(S.weekStart);
+        archived=true;
+      } else {
+        // No activity — just reset cleanly
+        S.children.forEach(function(c){c.log={};c.ext={};c.paid=false;c.payProof=null;c.payDate=null});
+      }
     }
     S.weekStart=thisMon;
     return archived;
@@ -637,9 +683,11 @@ document.getElementById('cfg-grade').addEventListener('input',function(){S.baseG
 // Close week (manual)
 document.getElementById('btn-close-week').addEventListener('click',function(){
   if(!confirm('¿Cerrar la semana actual y archivarla en el historial?'))return;
-  archiveCurrentWeek(S.weekStart);
+  // Use the data's own week if weekStart missing/wrong (handles old data)
+  var weekToArchive=S.weekStart||inferDataWeek()||currentMonday();
+  archiveCurrentWeek(weekToArchive);
   S.weekStart=currentMonday();
-  saveNow();renderParent();alert('Semana cerrada y archivada.');
+  saveNow();renderParent();alert('Semana cerrada y archivada en el historial.');
 });
 
 // ═══ PARENT CHILD DETAIL ═══
