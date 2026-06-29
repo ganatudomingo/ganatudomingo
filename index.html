@@ -100,7 +100,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--white);
 .cbtn{flex:1;background:var(--navy);border:1.5px solid var(--navy-light);border-radius:12px;padding:14px 8px;color:var(--white);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;transition:all .15s}
 .cbtn:hover{border-color:var(--gold);color:var(--gold)}.cbtn .ci{font-size:26px}
 .photo-full{width:100%;border-radius:12px;max-height:60vh;object-fit:contain;background:var(--navy);margin-bottom:16px}
-#file-cam,#file-gal,#file-pay{display:none}
+#file-cam,#file-pay{display:none}
 .epick{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
 .eopt{font-size:28px;cursor:pointer;padding:4px;border-radius:8px;border:2px solid transparent;transition:border-color .15s}.eopt.sel{border-color:var(--gold)}
 .dpicks{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
@@ -237,19 +237,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--white);
   <div class="row"><button class="btn btn-o" id="mt-cancel">Cancelar</button><button class="btn btn-g" id="mt-save">Agregar</button></div>
 </div></div>
 
-<div class="mov" id="m-photo"><div class="modal"><div class="mhandle"></div><div class="mtitle">Subir evidencia 📷</div>
-  <p style="font-size:13px;color:var(--gray);margin-bottom:16px" id="mp-task">Tarea</p>
-  <div class="cchoice"><button class="cbtn" id="mp-cam"><span class="ci">📸</span>Tomar foto</button><button class="cbtn" id="mp-gal"><span class="ci">🖼️</span>Galería</button></div>
-  <div style="margin-top:14px"><button class="btn btn-o btn-b" id="mp-cancel">Cancelar</button></div>
-</div></div>
-
 <div class="mov" id="m-viewer"><div class="modal"><div class="mhandle"></div><div class="mtitle" id="mv-title">Evidencia</div>
   <img class="photo-full" id="mv-img" src="" alt=""><p style="font-size:12px;color:var(--gray);margin-bottom:16px" id="mv-meta"></p>
   <div id="mv-actions"></div><button class="btn btn-o btn-b" id="mv-close" style="margin-top:10px">Cerrar</button>
 </div></div>
 
 <input type="file" id="file-cam" accept="image/*" capture="environment">
-<input type="file" id="file-gal" accept="image/*">
 <input type="file" id="file-pay" accept="image/*">
 
 <!-- PIN Modal -->
@@ -377,6 +370,40 @@ function saveCloud(){
   DB.collection('familias').doc(FAMILY_CODE).set(serialize()).then(function(){
     setTimeout(function(){SUPPRESS=false},400);
   }).catch(function(e){console.log('save err',e);SUPPRESS=false;toast('⚠ Error al guardar')});
+}
+
+// Save with success/error callback (for photo uploads)
+function saveNowSafe(cb){
+  saveLocal();
+  if(!ONLINE||!DB||!FAMILY_CODE){if(cb)cb(true);return}
+  // Check serialized size before sending (Firestore limit ~1MB)
+  var payload=serialize();
+  var size=JSON.stringify(payload).length;
+  if(size>1000000){
+    // Too big - trim oldest photos from history to make room
+    toast('⚠ Datos muy grandes, limpiando...');
+    trimPhotos(payload);
+    size=JSON.stringify(payload).length;
+    if(size>1000000){if(cb)cb(false);toast('⚠ La foto es muy grande');return}
+  }
+  SUPPRESS=true;
+  DB.collection('familias').doc(FAMILY_CODE).set(payload).then(function(){
+    setTimeout(function(){SUPPRESS=false},400);
+    if(cb)cb(true);
+  }).catch(function(e){
+    console.log('save err',e);SUPPRESS=false;
+    toast('⚠ Error al guardar en la nube');
+    if(cb)cb(false);
+  });
+}
+
+// Remove photo data from archived history weeks to free space
+function trimPhotos(data){
+  if(!data.history)return;
+  for(var i=0;i<data.history.length;i++){
+    var wk=data.history[i];
+    if(wk.data){for(var cid in wk.data){if(wk.data[cid].payProof)wk.data[cid].payProof=null}}
+  }
 }
 
 function loadLocal(){
@@ -569,12 +596,16 @@ document.getElementById('pc-pay').addEventListener('click',function(e){
 // Payment file upload
 document.getElementById('file-pay').addEventListener('change',function(){
   var file=this.files[0];this.value='';if(!file)return;
-  var reader=new FileReader();
-  reader.onload=function(ev){
+  toast('Procesando comprobante...');
+  compressImage(file,function(dataUrl){
+    if(!dataUrl){toast('⚠ No se pudo procesar la imagen');return}
     var c=S.children.find(function(x){return x.id===S.payTarget});if(!c)return;
-    c.paid=true;c.payProof=ev.target.result;c.payDate=new Date().toISOString();
-    saveNow();renderPCAll(c);
-  };reader.readAsDataURL(file);
+    c.paid=true;c.payProof=dataUrl;c.payDate=new Date().toISOString();
+    saveNowSafe(function(ok){
+      renderPCAll(c);
+      if(ok)toast('✓ Comprobante guardado');
+    });
+  });
 });
 
 document.getElementById('pchild-back').addEventListener('click',function(){goTo('parent');renderParent()});
@@ -641,7 +672,7 @@ document.getElementById('cd-tasks').addEventListener('click',function(e){
   var toggle=e.target.closest('[data-togglekey]');
   if(toggle){var k=toggle.getAttribute('data-togglekey'),c=S.children.find(function(x){return x.id===S.curChild});if(!c)return;if(!c.log[k])c.log[k]={done:false,hasPhoto:false,photoData:null,photoDate:null};c.log[k].done=!c.log[k].done;saveNow();renderCD(c);return}
   var upload=e.target.closest('[data-uploadkey]');
-  if(upload){S.pendingKey=upload.getAttribute('data-uploadkey');document.getElementById('mp-task').textContent='📋 '+upload.getAttribute('data-uploadname');openM('m-photo');return}
+  if(upload){S.pendingKey=upload.getAttribute('data-uploadkey');document.getElementById('file-cam').click();return}
   var view=e.target.closest('[data-cviewkey]');
   if(view){showPhoto(view.getAttribute('data-cviewkey'),S.curChild,view.getAttribute('data-cviewname'),false);return}
 });
@@ -665,12 +696,57 @@ document.getElementById('cd-hist').addEventListener('click',function(e){
 document.getElementById('child-det-back').addEventListener('click',function(){goTo('child-sel');renderChildSel()});
 
 // ═══ PHOTO SYSTEM ═══
-document.getElementById('mp-cam').addEventListener('click',function(){closeM('m-photo');document.getElementById('file-cam').click()});
-document.getElementById('mp-gal').addEventListener('click',function(){closeM('m-photo');document.getElementById('file-gal').click()});
-document.getElementById('mp-cancel').addEventListener('click',function(){closeM('m-photo')});
-function handleFile(file){if(!file||!S.pendingKey)return;var reader=new FileReader();reader.onload=function(ev){var c=S.children.find(function(x){return x.id===S.curChild});if(!c)return;var k=S.pendingKey;if(!c.log[k])c.log[k]={done:false,hasPhoto:false,photoData:null,photoDate:null};c.log[k].done=true;c.log[k].hasPhoto=true;c.log[k].photoData=ev.target.result;c.log[k].photoDate=new Date().toISOString();S.pendingKey=null;saveNow();renderCD(c)};reader.readAsDataURL(file)}
+// Evidencias de tareas: solo cámara (sin galería). El input file-cam abre la cámara directo.
+// Compress image to fit under Firestore 1MB limit
+function compressImage(file,cb){
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var img=new Image();
+    img.onload=function(){
+      var maxDim=900;
+      var w=img.width,h=img.height;
+      if(w>h&&w>maxDim){h=Math.round(h*maxDim/w);w=maxDim}
+      else if(h>maxDim){w=Math.round(w*maxDim/h);h=maxDim}
+      var canvas=document.createElement('canvas');
+      canvas.width=w;canvas.height=h;
+      var ctx=canvas.getContext('2d');
+      ctx.drawImage(img,0,0,w,h);
+      // Try decreasing quality until under ~700KB (safe margin under 1MB)
+      var quality=0.7,dataUrl=canvas.toDataURL('image/jpeg',quality);
+      while(dataUrl.length>700000&&quality>0.3){
+        quality-=0.1;dataUrl=canvas.toDataURL('image/jpeg',quality);
+      }
+      // If still too big, shrink dimensions further
+      if(dataUrl.length>700000){
+        var c2=document.createElement('canvas');
+        c2.width=Math.round(w*0.7);c2.height=Math.round(h*0.7);
+        c2.getContext('2d').drawImage(img,0,0,c2.width,c2.height);
+        dataUrl=c2.toDataURL('image/jpeg',0.5);
+      }
+      cb(dataUrl);
+    };
+    img.onerror=function(){cb(null)};
+    img.src=e.target.result;
+  };
+  reader.onerror=function(){cb(null)};
+  reader.readAsDataURL(file);
+}
+function handleFile(file){if(!file||!S.pendingKey)return;
+  toast('Procesando foto...');
+  compressImage(file,function(dataUrl){
+    if(!dataUrl){toast('⚠ No se pudo procesar la foto');return}
+    var c=S.children.find(function(x){return x.id===S.curChild});if(!c)return;
+    var k=S.pendingKey;
+    if(!c.log[k])c.log[k]={done:false,hasPhoto:false,photoData:null,photoDate:null};
+    c.log[k].done=true;c.log[k].hasPhoto=true;c.log[k].photoData=dataUrl;c.log[k].photoDate=new Date().toISOString();
+    S.pendingKey=null;
+    saveNowSafe(function(ok){
+      renderCD(c);
+      if(ok)toast('✓ Evidencia guardada');
+    });
+  });
+}
 document.getElementById('file-cam').addEventListener('change',function(){handleFile(this.files[0]);this.value=''});
-document.getElementById('file-gal').addEventListener('change',function(){handleFile(this.files[0]);this.value=''});
 
 function showPhoto(key,childId,taskName,canDel){
   var c=S.children.find(function(x){return x.id===childId});if(!c)return;var entry=c.log[key];if(!entry||!entry.photoData)return;
