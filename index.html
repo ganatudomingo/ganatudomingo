@@ -202,6 +202,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--white);
       <div class="card"><div class="card-t">Domingo base global</div><div class="fg" style="margin:0"><label class="fl">Monto ($)</label><input class="fi" type="number" id="cfg-base" value="1000"></div></div>
       <div class="card"><div class="card-t">Factor calificaciones</div><p style="font-size:13px;color:var(--gray);margin-bottom:12px">Base = <strong style="color:var(--white)">8.0</strong></p><div class="fg" style="margin:0"><label class="fl">Promedio base</label><input class="fi" type="number" id="cfg-grade" value="8" min="0" max="10" step="0.1"></div></div>
       <div class="card"><div class="card-t">Cerrar semana</div><p style="font-size:13px;color:var(--gray);margin-bottom:12px">Archiva la semana actual en el historial y limpia tareas completadas para empezar nueva semana.</p><button class="btn btn-w btn-b" id="btn-close-week">📦 Cerrar semana actual</button></div>
+      <div class="card"><div class="card-t">💾 Memoria usada</div><div class="pbar" style="margin-bottom:6px"><div class="pfill" id="storage-bar" style="width:0%;background:var(--green)"></div></div><p style="font-size:12px;color:var(--gray)" id="storage-text">Calculando...</p></div>
       <div class="card"><div class="card-t">🔒 Contraseña de papás</div><div class="fg"><label class="fl">Nueva contraseña (4 dígitos)</label><input class="fi" id="cfg-parent-pin" type="password" maxlength="4" placeholder="••••" inputmode="numeric"></div><button class="btn btn-g btn-b" id="btn-save-parent-pin">Guardar contraseña</button></div>
     </div>
   </div>
@@ -299,7 +300,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--white);
 var DAYS=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'],EMOJIS=['😊','😎','🦊','🐯','🦁','🐸','⭐','🚀'];
 var TODAY_IDX=(new Date().getDay()+6)%7;
 var S={
-  globalBase:1000,baseGrade:8,weekNum:1,parentPin:'1234',
+  globalBase:1000,baseGrade:8,weekNum:1,parentPin:'1234',weekStart:null,
   children:[{id:1,name:'Diego',age:12,emoji:'😎',customBase:null,grade:null,log:{},ext:{},paid:false,payProof:null,payDate:null,pin:'0000',advances:[]}],
   tasks:[
     {id:1,name:'Tender la cama',childIds:[1],days:[0,1,2,3,4,5,6],type:'fixed',value:143,photo:true},
@@ -326,7 +327,7 @@ var FIREBASE_CONFIG = {
 // ═══════════════════════════════════════════
 // PERSISTENCE LAYER (Firebase + localStorage)
 // ═══════════════════════════════════════════
-var DB=null, FAMILY_CODE='', ONLINE=false, UNSUB=null, SUPPRESS=false, SAVE_TIMER=null;
+var DB=null, FAMILY_CODE='', ONLINE=false, UNSUB=null, SAVE_TIMER=null;
 
 function fbReady(){
   return FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey!=='TU_API_KEY' && typeof firebase!=='undefined';
@@ -344,7 +345,7 @@ function initFirebase(){
 // Serialize only persistent data (not UI state)
 function serialize(){
   return {
-    globalBase:S.globalBase,baseGrade:S.baseGrade,weekNum:S.weekNum,parentPin:S.parentPin,
+    globalBase:S.globalBase,baseGrade:S.baseGrade,weekNum:S.weekNum,parentPin:S.parentPin,weekStart:S.weekStart,
     children:S.children,tasks:S.tasks,history:S.history,nid:S.nid,ntid:S.ntid
   };
 }
@@ -353,6 +354,7 @@ function applyData(d){
   S.globalBase=d.globalBase!=null?d.globalBase:1000;
   S.baseGrade=d.baseGrade!=null?d.baseGrade:8;
   S.weekNum=d.weekNum!=null?d.weekNum:1;
+  S.weekStart=d.weekStart!=null?d.weekStart:null;
   S.parentPin=d.parentPin||'1234';
   S.children=d.children||[];
   S.tasks=d.tasks||[];
@@ -384,58 +386,51 @@ function toast(msg){
 // Save (debounced)
 function save(){
   saveLocal();
-  if(ONLINE&&DB){clearTimeout(SAVE_TIMER);SAVE_TIMER=setTimeout(saveCloud,600)}
+  if(ONLINE&&DB){clearTimeout(SAVE_TIMER);SAVE_TIMER=setTimeout(function(){pushCloud()},600)}
 }
 // Save immediately (critical moments)
 function saveNow(){
   saveLocal();
-  if(ONLINE&&DB)saveCloud();
+  if(ONLINE&&DB)pushCloud();
 }
 function saveLocal(){
   try{localStorage.setItem('gtd_data',JSON.stringify(serialize()));
     if(FAMILY_CODE)localStorage.setItem('gtd_family',FAMILY_CODE);
   }catch(e){}
 }
-function saveCloud(){
-  if(!DB||!FAMILY_CODE)return;
-  SUPPRESS=true;
-  DB.collection('familias').doc(FAMILY_CODE).set(serialize()).then(function(){
-    setTimeout(function(){SUPPRESS=false},400);
-  }).catch(function(e){console.log('save err',e);SUPPRESS=false;toast('⚠ Error al guardar')});
+
+// Track when WE last wrote, so we can ignore our own echo from onSnapshot reliably
+var LAST_LOCAL_WRITE=0;
+var PENDING_WRITE=false;
+
+function pushCloud(cb){
+  if(!DB||!FAMILY_CODE){if(cb)cb(true);return}
+  var payload=serialize();
+  var size=JSON.stringify(payload).length;
+  if(size>1040000){
+    // Over Firestore 1MB hard limit — do NOT delete photos. Warn and keep local.
+    toast('⚠ Memoria llena: cierra una semana para liberar espacio');
+    if(cb)cb(false);
+    return;
+  }
+  LAST_LOCAL_WRITE=Date.now();
+  PENDING_WRITE=true;
+  payload._ts=LAST_LOCAL_WRITE; // stamp so we recognize our own echo
+  DB.collection('familias').doc(FAMILY_CODE).set(payload).then(function(){
+    PENDING_WRITE=false;
+    if(cb)cb(true);
+  }).catch(function(e){
+    console.log('save err',e);PENDING_WRITE=false;
+    toast('⚠ Error al guardar en la nube');
+    if(cb)cb(false);
+  });
 }
 
 // Save with success/error callback (for photo uploads)
 function saveNowSafe(cb){
   saveLocal();
   if(!ONLINE||!DB||!FAMILY_CODE){if(cb)cb(true);return}
-  // Check serialized size before sending (Firestore limit ~1MB)
-  var payload=serialize();
-  var size=JSON.stringify(payload).length;
-  if(size>1000000){
-    // Too big - trim oldest photos from history to make room
-    toast('⚠ Datos muy grandes, limpiando...');
-    trimPhotos(payload);
-    size=JSON.stringify(payload).length;
-    if(size>1000000){if(cb)cb(false);toast('⚠ La foto es muy grande');return}
-  }
-  SUPPRESS=true;
-  DB.collection('familias').doc(FAMILY_CODE).set(payload).then(function(){
-    setTimeout(function(){SUPPRESS=false},400);
-    if(cb)cb(true);
-  }).catch(function(e){
-    console.log('save err',e);SUPPRESS=false;
-    toast('⚠ Error al guardar en la nube');
-    if(cb)cb(false);
-  });
-}
-
-// Remove photo data from archived history weeks to free space
-function trimPhotos(data){
-  if(!data.history)return;
-  for(var i=0;i<data.history.length;i++){
-    var wk=data.history[i];
-    if(wk.data){for(var cid in wk.data){if(wk.data[cid].payProof)wk.data[cid].payProof=null}}
-  }
+  pushCloud(cb);
 }
 
 function loadLocal(){
@@ -457,15 +452,32 @@ function connectFamily(code){
   ref.get().then(function(snap){
     if(!snap.exists){
       // New family — push current local data as seed
-      ref.set(serialize());
+      if(!S.weekStart)S.weekStart=currentMonday();
+      var seed=serialize();seed._ts=Date.now();LAST_LOCAL_WRITE=seed._ts;
+      ref.set(seed);
+    } else {
+      // Load server data, then check if week rolled over
+      applyData(snap.data());
+      var rolled=checkWeekRollover();
+      if(rolled){
+        // Push the archived week back to cloud so all devices share it
+        pushCloud();
+      }
     }
     // Subscribe to realtime updates
     if(UNSUB)UNSUB();
-    UNSUB=ref.onSnapshot(function(doc){
-      if(SUPPRESS)return;
-      if(doc.exists){applyData(doc.data());saveLocal();reRenderCurrent()}
+    UNSUB=ref.onSnapshot({includeMetadataChanges:false},function(doc){
+      if(!doc.exists)return;
+      // Skip snapshots that come from our own local writes (still syncing to server)
+      if(doc.metadata.hasPendingWrites)return;
+      if(PENDING_WRITE)return; // our write is in flight
+      var data=doc.data();
+      // Extra guard: ignore our own echo by timestamp
+      if(data._ts&&data._ts===LAST_LOCAL_WRITE)return;
+      // Genuine remote change from another device — apply it
+      applyData(data);saveLocal();reRenderCurrent();
     },function(e){console.log('snap err',e)});
-    ONLINE=true;setConnUI();saveLocal();
+    ONLINE=true;setConnUI();saveLocal();reRenderCurrent();
     toast('🟢 Conectado: '+code);
   }).catch(function(e){console.log('connect err',e);toast('⚠ Error de conexión')});
 }
@@ -504,6 +516,55 @@ function calcEarned(c){
 function calcMax(c){var base=c.customBase!=null?c.customBase:S.globalBase,bg=S.baseGrade||8,gm=(c.grade!=null&&c.grade!=='')?parseFloat(c.grade)/bg:1,bm=0;tasksFor(c.id).filter(function(t){return t.type==='bonus'}).forEach(function(t){bm+=t.days.length*t.value});return Math.round(base*gm+bm)}
 function weekLabel(){var n=new Date(),mon=new Date(n);mon.setDate(n.getDate()-((n.getDay()+6)%7));var sun=new Date(mon);sun.setDate(mon.getDate()+6);var fmt=function(d){return d.getDate()+'/'+(d.getMonth()+1)};return fmt(mon)+' – '+fmt(sun)}
 
+// Get the Monday (start) of the current week as YYYY-MM-DD
+function currentMonday(){
+  var n=new Date();
+  var mon=new Date(n.getFullYear(),n.getMonth(),n.getDate());
+  mon.setDate(mon.getDate()-((n.getDay()+6)%7));
+  return mon.getFullYear()+'-'+String(mon.getMonth()+1).padStart(2,'0')+'-'+String(mon.getDate()).padStart(2,'0');
+}
+
+// Build a week label from a given Monday string
+function labelFromMonday(monStr){
+  var p=monStr.split('-');
+  var mon=new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2]));
+  var sun=new Date(mon);sun.setDate(mon.getDate()+6);
+  var fmt=function(d){return d.getDate()+'/'+(d.getMonth()+1)};
+  return fmt(mon)+' – '+fmt(sun);
+}
+
+// Archive the current week into history and reset for the new week
+function archiveCurrentWeek(prevMondayStr){
+  var wk={weekNum:S.weekNum,weekLabel:prevMondayStr?labelFromMonday(prevMondayStr):weekLabel(),data:{}};
+  S.children.forEach(function(c){wk.data[c.id]={name:c.name,emoji:c.emoji,earned:calcEarned(c),max:calcMax(c),grade:c.grade,paid:c.paid,payProof:c.payProof,payDate:c.payDate}});
+  S.history.push(wk);
+  S.weekNum++;
+  // Reset children logs/payments for the new week (advances persist)
+  S.children.forEach(function(c){c.log={};c.ext={};c.paid=false;c.payProof=null;c.payDate=null});
+}
+
+// Check if the week changed since last open; if so, auto-archive
+function checkWeekRollover(){
+  var thisMon=currentMonday();
+  if(!S.weekStart){
+    // First time — just set the marker, don't archive
+    S.weekStart=thisMon;
+    return false;
+  }
+  if(S.weekStart!==thisMon){
+    // A new week (or several) has started — archive the previous one
+    var archived=false;
+    // Guard against weird future dates / only archive once per real week
+    if(thisMon>S.weekStart){
+      archiveCurrentWeek(S.weekStart);
+      archived=true;
+    }
+    S.weekStart=thisMon;
+    return archived;
+  }
+  return false;
+}
+
 // ═══ ADVANCES (adelantos) ═══
 function advPaid(a){var s=0;(a.abonos||[]).forEach(function(b){s+=b.amount});return s}
 function advBalance(a){return Math.max(0,a.amount-advPaid(a))}
@@ -530,7 +591,18 @@ function applyAutoAbono(c){
 }
 
 // ═══ PARENT ═══
-function renderParent(){renderChildren();renderTasks();renderHistParent();document.getElementById('cfg-base').value=S.globalBase;document.getElementById('cfg-grade').value=S.baseGrade}
+function renderParent(){renderChildren();renderTasks();renderHistParent();updateStorageMeter();document.getElementById('cfg-base').value=S.globalBase;document.getElementById('cfg-grade').value=S.baseGrade}
+function updateStorageMeter(){
+  var bar=document.getElementById('storage-bar'),txt=document.getElementById('storage-text');
+  if(!bar)return;
+  var size=JSON.stringify(serialize()).length;
+  var limit=1048576; // 1MB Firestore limit
+  var pct=Math.min(100,Math.round(size/limit*100));
+  var kb=Math.round(size/1024);
+  bar.style.width=pct+'%';
+  bar.style.background=pct>85?'var(--red)':pct>60?'var(--orange)':'var(--green)';
+  txt.textContent=kb+' KB de ~1024 KB ('+pct+'%)'+(pct>85?' — cierra una semana para liberar espacio':'');
+}
 function renderChildren(){
   var el=document.getElementById('children-list');
   if(!S.children.length){el.innerHTML='<div class="empty"><div class="ei">👶</div>Agrega el primer hijo</div>';return}
@@ -562,14 +634,11 @@ document.getElementById('tasks-list').addEventListener('click',function(e){var b
 document.getElementById('cfg-base').addEventListener('input',function(){S.globalBase=parseFloat(this.value)||1000;save()});
 document.getElementById('cfg-grade').addEventListener('input',function(){S.baseGrade=parseFloat(this.value)||8;save()});
 
-// Close week
+// Close week (manual)
 document.getElementById('btn-close-week').addEventListener('click',function(){
   if(!confirm('¿Cerrar la semana actual y archivarla en el historial?'))return;
-  var wk={weekNum:S.weekNum,weekLabel:weekLabel(),data:{}};
-  S.children.forEach(function(c){wk.data[c.id]={name:c.name,emoji:c.emoji,earned:calcEarned(c),max:calcMax(c),grade:c.grade,paid:c.paid,payProof:c.payProof,payDate:c.payDate}});
-  S.history.push(wk);S.weekNum++;
-  // Reset children logs/payments
-  S.children.forEach(function(c){c.log={};c.ext={};c.paid=false;c.payProof=null;c.payDate=null});
+  archiveCurrentWeek(S.weekStart);
+  S.weekStart=currentMonday();
   saveNow();renderParent();alert('Semana cerrada y archivada.');
 });
 
@@ -1122,6 +1191,15 @@ if(isIOS&&!isStandalone){
 // ═══ PERSISTENCE INIT ═══
 // 1. Load local data first (instant)
 loadLocal();
+
+// Determine if we'll connect to Firebase
+var willConnect=false;
+try{willConnect=!!(localStorage.getItem('gtd_family')&&fbReady())}catch(e){}
+// Only do local rollover when offline. When connected, connectFamily() handles
+// rollover after loading server data (avoids double-archiving across devices).
+if(!willConnect){
+  if(checkWeekRollover()){saveLocal()}
+}
 
 // 2. Wire connect button
 document.getElementById('btn-connect').addEventListener('click',function(){
