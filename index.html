@@ -121,6 +121,23 @@ body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--white);
 .hist-amt{font-family:'Syne',sans-serif;font-weight:800;font-size:16px;color:var(--gold);text-align:right}
 .hist-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:12px;text-transform:uppercase;letter-spacing:.5px;margin-top:4px;display:inline-block}
 .hist-badge.paid{background:rgba(62,207,142,.12);color:var(--green)}.hist-badge.pend{background:rgba(240,101,101,.12);color:var(--red)}
+/* Advances */
+.adv-card{background:var(--navy);border:1px solid var(--navy-light);border-radius:12px;padding:14px;margin-bottom:10px}
+.adv-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.adv-amt{font-family:'Syne',sans-serif;font-weight:800;font-size:20px;color:var(--orange)}
+.adv-reason{font-size:13px;color:var(--white);font-weight:500}
+.adv-date{font-size:11px;color:var(--gray);margin-top:2px}
+.adv-bar-track{background:var(--navy-light);border-radius:8px;height:8px;overflow:hidden;margin:8px 0 4px}
+.adv-bar-fill{height:100%;border-radius:8px;background:linear-gradient(90deg,#d4882a,var(--orange));transition:width .5s}
+.adv-meta{display:flex;justify-content:space-between;font-size:11px;color:var(--gray)}
+.adv-abonos{margin-top:10px;border-top:1px solid rgba(255,255,255,.06);padding-top:8px}
+.abono-row{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;color:var(--gray)}
+.abono-row .ab-amt{color:var(--green);font-weight:600}
+.adv-paid-tag{font-size:10px;font-weight:700;padding:3px 8px;border-radius:12px;background:rgba(62,207,142,.12);color:var(--green);text-transform:uppercase}
+.adv-summary{display:flex;gap:12px;margin-bottom:12px}
+.adv-sum-box{flex:1;background:var(--navy);border-radius:12px;padding:12px;text-align:center}
+.adv-sum-box .lbl{font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:.5px}
+.adv-sum-box .val{font-family:'Syne',sans-serif;font-weight:800;font-size:18px;margin-top:4px}
 /* PIN */
 .pin-wrap{text-align:center;padding:8px 0}
 .pin-dots{display:flex;gap:12px;justify-content:center;margin:14px 0 8px}
@@ -195,6 +212,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--white);
   <div class="inner">
     <div class="meter"><div class="meter-lbl">Ganado esta semana</div><div class="meter-amt" id="pc-amt">$0</div><div class="meter-sub" id="pc-sub">de $1,000</div><div class="pbar"><div class="pfill" id="pc-bar" style="width:0%"></div></div><div class="meter-row"><span id="pc-pct">0%</span><span>Esta semana</span></div></div>
     <div class="card"><div class="card-t">💰 Pago del domingo</div><div id="pc-pay"></div></div>
+    <div class="card"><div class="card-t">🏦 Adelantos</div><div id="pc-advances"></div><button class="btn btn-w btn-b" id="pc-add-advance" style="margin-top:12px">+ Registrar adelanto</button></div>
     <div class="card"><div class="card-t">Calificación escolar</div><div class="fg"><label class="fl">Promedio actual</label><input class="fi" type="number" id="pc-grade" min="0" max="10" step="0.1" placeholder="Ej: 8.5"></div><p style="font-size:12px;color:var(--gray)" id="pc-grade-fx">Ingresa calificación.</p></div>
     <div class="card"><div class="card-t">Reactivar días</div><p style="font-size:13px;color:var(--gray);margin-bottom:12px">Permite subir evidencia de un día pasado por 24h.</p><div id="pc-days-extend"></div></div>
     <div class="card"><div class="card-t">Tareas y evidencias</div><div id="pc-tasks"></div></div>
@@ -212,6 +230,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--white);
   <div class="inner">
     <div class="meter"><div class="meter-lbl">Llevas ganado esta semana</div><div class="meter-amt" id="cd-amt">$0</div><div class="meter-sub" id="cd-sub">de $1,000 posibles</div><div class="pbar"><div class="pfill" id="cd-bar" style="width:0%"></div></div><div class="meter-row"><span id="cd-pct">0%</span><span>Lun – Dom</span></div></div>
     <div class="card"><div class="card-t">💰 Estatus de pago</div><div id="cd-pay"></div></div>
+    <div class="card" id="cd-advances-card"><div class="card-t">🏦 Mis adelantos</div><div id="cd-advances"></div></div>
     <div class="card"><div class="card-t">Calificación escolar</div><div class="gdisplay"><div class="gcircle" id="cd-gc">–</div><div class="ginfo"><h4 id="cd-gl">Sin calificación</h4><p id="cd-ge">Base 8.0</p></div></div></div>
     <div class="card"><div class="card-t">Mis tareas</div><div class="wstrip" id="cd-strip"></div><div id="cd-tasks"></div></div>
     <div class="card"><div class="card-t">📊 Mi historial</div><div id="cd-hist"></div></div>
@@ -235,6 +254,19 @@ body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--white);
   <div class="fg"><label class="fl">Valor ($)</label><input class="fi" type="number" id="nt-val" placeholder="Ej: 143"></div>
   <div class="fg"><label class="fl">¿Requiere foto?</label><select class="fi" id="nt-photo"><option value="yes">Sí</option><option value="no">No</option></select></div>
   <div class="row"><button class="btn btn-o" id="mt-cancel">Cancelar</button><button class="btn btn-g" id="mt-save">Agregar</button></div>
+</div></div>
+
+<div class="mov mov-center" id="m-advance"><div class="modal modal-pin"><div class="mhandle"></div><div class="mtitle">🏦 Registrar adelanto</div>
+  <div class="fg"><label class="fl">Monto del adelanto ($)</label><input class="fi" type="number" id="adv-amount" placeholder="Ej: 500" inputmode="numeric"></div>
+  <div class="fg"><label class="fl">Motivo (opcional)</label><input class="fi" id="adv-reason" placeholder="Ej: Salida con amigos"></div>
+  <div class="fg"><label class="fl">Abono por semana ($)</label><input class="fi" type="number" id="adv-weekly" placeholder="Ej: 100" inputmode="numeric"><p style="font-size:11px;color:var(--gray);margin-top:6px">Se descontará automáticamente cada vez que marques el domingo como pagado.</p></div>
+  <div class="row"><button class="btn btn-o" id="adv-cancel">Cancelar</button><button class="btn btn-w" id="adv-save">Registrar</button></div>
+</div></div>
+
+<div class="mov mov-center" id="m-abono"><div class="modal modal-pin"><div class="mhandle"></div><div class="mtitle">💵 Registrar abono</div>
+  <p style="font-size:13px;color:var(--gray);margin-bottom:14px" id="abono-info">Saldo pendiente</p>
+  <div class="fg"><label class="fl">Monto del abono ($)</label><input class="fi" type="number" id="abono-amount" placeholder="Ej: 100" inputmode="numeric"></div>
+  <div class="row"><button class="btn btn-o" id="abono-cancel">Cancelar</button><button class="btn btn-green" id="abono-save">Abonar</button></div>
 </div></div>
 
 <div class="mov" id="m-viewer"><div class="modal"><div class="mhandle"></div><div class="mtitle" id="mv-title">Evidencia</div>
@@ -268,7 +300,7 @@ var DAYS=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'],EMOJIS=['😊','😎','�
 var TODAY_IDX=(new Date().getDay()+6)%7;
 var S={
   globalBase:1000,baseGrade:8,weekNum:1,parentPin:'1234',
-  children:[{id:1,name:'Diego',age:12,emoji:'😎',customBase:null,grade:null,log:{},ext:{},paid:false,payProof:null,payDate:null,pin:'0000'}],
+  children:[{id:1,name:'Diego',age:12,emoji:'😎',customBase:null,grade:null,log:{},ext:{},paid:false,payProof:null,payDate:null,pin:'0000',advances:[]}],
   tasks:[
     {id:1,name:'Tender la cama',childIds:[1],days:[0,1,2,3,4,5,6],type:'fixed',value:143,photo:true},
     {id:2,name:'Sacar la basura',childIds:[1],days:[3],type:'fixed',value:200,photo:false},
@@ -472,6 +504,31 @@ function calcEarned(c){
 function calcMax(c){var base=c.customBase!=null?c.customBase:S.globalBase,bg=S.baseGrade||8,gm=(c.grade!=null&&c.grade!=='')?parseFloat(c.grade)/bg:1,bm=0;tasksFor(c.id).filter(function(t){return t.type==='bonus'}).forEach(function(t){bm+=t.days.length*t.value});return Math.round(base*gm+bm)}
 function weekLabel(){var n=new Date(),mon=new Date(n);mon.setDate(n.getDate()-((n.getDay()+6)%7));var sun=new Date(mon);sun.setDate(mon.getDate()+6);var fmt=function(d){return d.getDate()+'/'+(d.getMonth()+1)};return fmt(mon)+' – '+fmt(sun)}
 
+// ═══ ADVANCES (adelantos) ═══
+function advPaid(a){var s=0;(a.abonos||[]).forEach(function(b){s+=b.amount});return s}
+function advBalance(a){return Math.max(0,a.amount-advPaid(a))}
+function totalAdvBalance(c){var s=0;(c.advances||[]).forEach(function(a){s+=advBalance(a)});return s}
+function totalAdvLent(c){var s=0;(c.advances||[]).forEach(function(a){s+=a.amount});return s}
+function totalAdvPaid(c){var s=0;(c.advances||[]).forEach(function(a){s+=advPaid(a)});return s}
+// Active advances = those with pending balance
+function activeAdvances(c){return (c.advances||[]).filter(function(a){return advBalance(a)>0})}
+
+// When sunday is paid, auto-deduct weekly abono from oldest active advance
+function applyAutoAbono(c){
+  // Prevent double-charge in same week
+  if(c.lastAutoAbonoWeek===S.weekNum)return;
+  var active=activeAdvances(c);
+  if(!active.length)return;
+  // Apply to oldest active advance first
+  var a=active[0];
+  var amount=Math.min(a.weekly,advBalance(a));
+  if(amount<=0)return;
+  if(!a.abonos)a.abonos=[];
+  a.abonos.push({amount:amount,date:new Date().toISOString(),auto:true,week:S.weekNum});
+  c.lastAutoAbonoWeek=S.weekNum;
+  toast('💵 Abono automático: $'+amount.toLocaleString());
+}
+
 // ═══ PARENT ═══
 function renderParent(){renderChildren();renderTasks();renderHistParent();document.getElementById('cfg-base').value=S.globalBase;document.getElementById('cfg-grade').value=S.baseGrade}
 function renderChildren(){
@@ -524,7 +581,7 @@ function openPChildDetail(id){
   document.getElementById('pc-custom-base').value=c.customBase!=null?c.customBase:'';
   renderPCAll(c);goTo('pchild');
 }
-function renderPCAll(c){renderPCMeter(c);renderPCPay(c);renderPCExtend(c);renderPCTasks(c)}
+function renderPCAll(c){renderPCMeter(c);renderPCPay(c);renderPCAdvances(c);renderPCExtend(c);renderPCTasks(c)}
 function renderPCMeter(c){var e=calcEarned(c),mx=calcMax(c),base=c.customBase!=null?c.customBase:S.globalBase,pct=mx>0?Math.min(100,Math.round(e/mx*100)):0;document.getElementById('pc-amt').textContent='$'+e.toLocaleString();document.getElementById('pc-sub').textContent='de $'+base.toLocaleString()+' base';document.getElementById('pc-bar').style.width=pct+'%';document.getElementById('pc-pct').textContent=pct+'%'}
 
 function renderPCPay(c){
@@ -543,6 +600,49 @@ function renderPCPay(c){
     if(!c.payProof) html+='<button class="btn btn-g btn-b" id="pc-pay-upload">📷 Subir comprobante</button>';
   }
   html+='</div>';
+  el.innerHTML=html;
+}
+
+function renderPCAdvances(c){
+  var el=document.getElementById('pc-advances');
+  if(!c.advances)c.advances=[];
+  var lent=totalAdvLent(c),paid=totalAdvPaid(c),bal=totalAdvBalance(c);
+  var html='';
+  if(c.advances.length){
+    html+='<div class="adv-summary">'+
+      '<div class="adv-sum-box"><div class="lbl">Prestado</div><div class="val" style="color:var(--orange)">$'+lent.toLocaleString()+'</div></div>'+
+      '<div class="adv-sum-box"><div class="lbl">Abonado</div><div class="val" style="color:var(--green)">$'+paid.toLocaleString()+'</div></div>'+
+      '<div class="adv-sum-box"><div class="lbl">Pendiente</div><div class="val" style="color:var(--red)">$'+bal.toLocaleString()+'</div></div>'+
+      '</div>';
+  }
+  if(!c.advances.length){
+    html+='<div class="empty" style="padding:16px"><div class="ei">🏦</div>Sin adelantos registrados</div>';
+  } else {
+    c.advances.slice().reverse().forEach(function(a){
+      var b=advBalance(a),p=advPaid(a),pct=a.amount>0?Math.round(p/a.amount*100):0,done=b<=0;
+      var d=new Date(a.date);
+      html+='<div class="adv-card">'+
+        '<div class="adv-top"><div><div class="adv-reason">'+(a.reason||'Adelanto')+'</div>'+
+        '<div class="adv-date">'+d.toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'})+' · abono $'+a.weekly.toLocaleString()+'/sem</div></div>'+
+        '<div style="text-align:right"><div class="adv-amt">$'+a.amount.toLocaleString()+'</div>'+(done?'<span class="adv-paid-tag">Saldado ✓</span>':'')+'</div></div>'+
+        '<div class="adv-bar-track"><div class="adv-bar-fill" style="width:'+pct+'%"></div></div>'+
+        '<div class="adv-meta"><span>Abonado: $'+p.toLocaleString()+'</span><span>Pendiente: $'+b.toLocaleString()+'</span></div>';
+      if(a.abonos&&a.abonos.length){
+        html+='<div class="adv-abonos">';
+        a.abonos.slice().reverse().forEach(function(ab){
+          var ad=new Date(ab.date);
+          html+='<div class="abono-row"><span>'+ad.toLocaleDateString('es-MX',{day:'numeric',month:'short'})+(ab.auto?' · auto':'')+'</span><span class="ab-amt">+$'+ab.amount.toLocaleString()+'</span></div>';
+        });
+        html+='</div>';
+      }
+      if(!done){
+        html+='<div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-green btn-s" data-abono="'+a.id+'" style="flex:1">💵 Registrar abono</button><button class="btn btn-d btn-s" data-deladv="'+a.id+'">🗑</button></div>';
+      } else {
+        html+='<div style="margin-top:10px"><button class="btn btn-o btn-s btn-b" data-deladv="'+a.id+'">🗑 Eliminar registro</button></div>';
+      }
+      html+='</div>';
+    });
+  }
   el.innerHTML=html;
 }
 
@@ -579,7 +679,7 @@ document.getElementById('pc-tasks').addEventListener('click',function(e){var pz=
 // Payment events (delegated on pc-pay)
 document.getElementById('pc-pay').addEventListener('click',function(e){
   var c=S.children.find(function(x){return x.id===S.pcdChild});if(!c)return;
-  if(e.target.closest('#pc-mark-paid')){c.paid=true;c.payDate=new Date().toISOString();saveNow();renderPCAll(c);return}
+  if(e.target.closest('#pc-mark-paid')){c.paid=true;c.payDate=new Date().toISOString();applyAutoAbono(c);saveNow();renderPCAll(c);return}
   if(e.target.closest('#pc-unmark-paid')){c.paid=false;c.payProof=null;c.payDate=null;saveNow();renderPCAll(c);return}
   if(e.target.closest('#pc-pay-upload')){S.payTarget=c.id;document.getElementById('file-pay').click();return}
   if(e.target.closest('#pc-pay-proof')){
@@ -600,7 +700,7 @@ document.getElementById('file-pay').addEventListener('change',function(){
   compressImage(file,function(dataUrl){
     if(!dataUrl){toast('⚠ No se pudo procesar la imagen');return}
     var c=S.children.find(function(x){return x.id===S.payTarget});if(!c)return;
-    c.paid=true;c.payProof=dataUrl;c.payDate=new Date().toISOString();
+    c.paid=true;c.payProof=dataUrl;c.payDate=new Date().toISOString();applyAutoAbono(c);
     saveNowSafe(function(ok){
       renderPCAll(c);
       if(ok)toast('✓ Comprobante guardado');
@@ -609,6 +709,59 @@ document.getElementById('file-pay').addEventListener('change',function(){
 });
 
 document.getElementById('pchild-back').addEventListener('click',function(){goTo('parent');renderParent()});
+
+// ═══ ADVANCES events ═══
+document.getElementById('pc-add-advance').addEventListener('click',function(){
+  document.getElementById('adv-amount').value='';
+  document.getElementById('adv-reason').value='';
+  document.getElementById('adv-weekly').value='';
+  openM('m-advance');
+});
+document.getElementById('adv-cancel').addEventListener('click',function(){closeM('m-advance')});
+document.getElementById('adv-save').addEventListener('click',function(){
+  var c=S.children.find(function(x){return x.id===S.pcdChild});if(!c)return;
+  var amount=parseFloat(document.getElementById('adv-amount').value);
+  var weekly=parseFloat(document.getElementById('adv-weekly').value);
+  var reason=document.getElementById('adv-reason').value.trim();
+  if(!amount||amount<=0){alert('Ingresa el monto del adelanto');return}
+  if(!weekly||weekly<=0){alert('Ingresa el abono por semana');return}
+  if(!c.advances)c.advances=[];
+  c.advances.push({id:Date.now(),amount:amount,weekly:weekly,reason:reason,date:new Date().toISOString(),abonos:[]});
+  closeM('m-advance');saveNow();renderPCAll(c);toast('🏦 Adelanto registrado');
+});
+
+var abonoTargetAdv=null;
+document.getElementById('pc-advances').addEventListener('click',function(e){
+  var c=S.children.find(function(x){return x.id===S.pcdChild});if(!c)return;
+  var ab=e.target.closest('[data-abono]');
+  if(ab){
+    var aid=parseInt(ab.getAttribute('data-abono'));
+    var a=c.advances.find(function(x){return x.id===aid});if(!a)return;
+    abonoTargetAdv=aid;
+    document.getElementById('abono-info').textContent='Saldo pendiente: $'+advBalance(a).toLocaleString()+' (de $'+a.amount.toLocaleString()+')';
+    document.getElementById('abono-amount').value=a.weekly;
+    openM('m-abono');return;
+  }
+  var del=e.target.closest('[data-deladv]');
+  if(del){
+    if(!confirm('¿Eliminar este adelanto?'))return;
+    var did=parseInt(del.getAttribute('data-deladv'));
+    c.advances=c.advances.filter(function(x){return x.id!==did});
+    saveNow();renderPCAll(c);return;
+  }
+});
+document.getElementById('abono-cancel').addEventListener('click',function(){closeM('m-abono')});
+document.getElementById('abono-save').addEventListener('click',function(){
+  var c=S.children.find(function(x){return x.id===S.pcdChild});if(!c)return;
+  var a=c.advances.find(function(x){return x.id===abonoTargetAdv});if(!a)return;
+  var amount=parseFloat(document.getElementById('abono-amount').value);
+  if(!amount||amount<=0){alert('Ingresa el monto');return}
+  var bal=advBalance(a);
+  if(amount>bal)amount=bal; // cap at remaining balance
+  if(!a.abonos)a.abonos=[];
+  a.abonos.push({amount:amount,date:new Date().toISOString(),auto:false});
+  closeM('m-abono');saveNow();renderPCAll(c);toast('💵 Abono registrado');
+});
 
 // ═══ CHILD SELECTOR ═══
 function renderChildSel(){
@@ -640,7 +793,7 @@ function renderCD(c){
   else{gc.textContent='–';gc.style.borderColor='var(--gold)';gc.style.color='var(--gold)';gl.textContent='Sin calificación';ge.textContent='Base '+bg}
   // Strip
   document.getElementById('cd-strip').innerHTML=DAYS.map(function(d,i){var hasDone=tasksFor(c.id).some(function(t){return t.days.indexOf(i)>=0&&c.log[t.id+'_'+i]&&c.log[t.id+'_'+i].done});var isExt=canAct(c,i)&&i!==TODAY_IDX&&i<TODAY_IDX;var cls='dpill';if(i===TODAY_IDX)cls+=' today';else if(isExt)cls+=' ext';else if(hasDone)cls+=' hasd';if(S.filterDay===i)cls+=' sel';return '<div class="'+cls+'" data-fday="'+i+'">'+d+(isExt?'🔓':'')+'<span class="dn">'+(i+1)+'</span></div>'}).join('');
-  renderCDTasks(c);renderCDHist(c);
+  renderCDTasks(c);renderCDHist(c);renderCDAdvances(c);
 }
 
 function renderCDTasks(c){
@@ -664,6 +817,39 @@ function renderCDHist(c){
   if(!mine.length){el.innerHTML='<div class="empty"><div class="ei">📊</div>Sin historial aún</div>';return}
   el.innerHTML=mine.map(function(w){var d=w.data[c.id];
     return '<div class="hist-row"><div class="hist-week"><h4>Semana '+w.weekNum+'</h4><p>'+w.weekLabel+(d.grade!=null?' · Calif: '+d.grade:'')+'</p></div><div style="text-align:right"><div class="hist-amt">$'+d.earned.toLocaleString()+'</div><div class="hist-badge '+(d.paid?'paid':'pend')+'">'+(d.paid?'Pagado ✓':'Pendiente')+'</div>'+(d.payProof?'<div style="margin-top:4px"><span style="font-size:11px;color:var(--green);cursor:pointer" data-histproof="'+S.history.indexOf(w)+'_'+c.id+'">📷 Ver comprobante</span></div>':'')+'</div></div>'}).join('');
+}
+
+function renderCDAdvances(c){
+  var card=document.getElementById('cd-advances-card');
+  var el=document.getElementById('cd-advances');
+  if(!c.advances||!c.advances.length){card.style.display='none';return}
+  card.style.display='';
+  var lent=totalAdvLent(c),paid=totalAdvPaid(c),bal=totalAdvBalance(c);
+  var html='<div class="adv-summary">'+
+    '<div class="adv-sum-box"><div class="lbl">Me dieron</div><div class="val" style="color:var(--orange)">$'+lent.toLocaleString()+'</div></div>'+
+    '<div class="adv-sum-box"><div class="lbl">Abonado</div><div class="val" style="color:var(--green)">$'+paid.toLocaleString()+'</div></div>'+
+    '<div class="adv-sum-box"><div class="lbl">Debo</div><div class="val" style="color:var(--red)">$'+bal.toLocaleString()+'</div></div>'+
+    '</div>';
+  c.advances.slice().reverse().forEach(function(a){
+    var b=advBalance(a),p=advPaid(a),pct=a.amount>0?Math.round(p/a.amount*100):0,done=b<=0;
+    var d=new Date(a.date);
+    html+='<div class="adv-card">'+
+      '<div class="adv-top"><div><div class="adv-reason">'+(a.reason||'Adelanto')+'</div>'+
+      '<div class="adv-date">'+d.toLocaleDateString('es-MX',{day:'numeric',month:'long'})+' · abono $'+a.weekly.toLocaleString()+'/sem</div></div>'+
+      '<div style="text-align:right"><div class="adv-amt">$'+a.amount.toLocaleString()+'</div>'+(done?'<span class="adv-paid-tag">Saldado ✓</span>':'')+'</div></div>'+
+      '<div class="adv-bar-track"><div class="adv-bar-fill" style="width:'+pct+'%"></div></div>'+
+      '<div class="adv-meta"><span>Abonado: $'+p.toLocaleString()+'</span><span>Pendiente: $'+b.toLocaleString()+'</span></div>';
+    if(a.abonos&&a.abonos.length){
+      html+='<div class="adv-abonos">';
+      a.abonos.slice().reverse().forEach(function(ab){
+        var ad=new Date(ab.date);
+        html+='<div class="abono-row"><span>'+ad.toLocaleDateString('es-MX',{day:'numeric',month:'short'})+(ab.auto?' · automático':'')+'</span><span class="ab-amt">+$'+ab.amount.toLocaleString()+'</span></div>';
+      });
+      html+='</div>';
+    }
+    html+='</div>';
+  });
+  el.innerHTML=html;
 }
 
 // Child detail events
@@ -763,7 +949,7 @@ function buildEmojiPicker(){document.getElementById('epick').innerHTML=EMOJIS.ma
 document.getElementById('epick').addEventListener('click',function(e){var opt=e.target.closest('.eopt');if(!opt)return;document.querySelectorAll('.eopt').forEach(function(o){o.classList.remove('sel')});opt.classList.add('sel');S.selEmoji=opt.textContent.trim()});
 document.getElementById('btn-add-child').addEventListener('click',function(){buildEmojiPicker();openM('m-child')});
 document.getElementById('mc-cancel').addEventListener('click',function(){closeM('m-child')});
-document.getElementById('mc-save').addEventListener('click',function(){var name=document.getElementById('nc-name').value.trim(),age=parseInt(document.getElementById('nc-age').value)||0,pin=document.getElementById('nc-pin').value.trim();if(!name){alert('Nombre');return}if(!pin||pin.length!==4||!/^\d{4}$/.test(pin)){alert('La contraseña debe ser de 4 dígitos');return}S.children.push({id:S.nid++,name:name,age:age,emoji:S.selEmoji,customBase:null,grade:null,log:{},ext:{},paid:false,payProof:null,payDate:null,pin:pin});closeM('m-child');document.getElementById('nc-name').value='';document.getElementById('nc-age').value='';document.getElementById('nc-pin').value='';saveNow();renderChildren()});
+document.getElementById('mc-save').addEventListener('click',function(){var name=document.getElementById('nc-name').value.trim(),age=parseInt(document.getElementById('nc-age').value)||0,pin=document.getElementById('nc-pin').value.trim();if(!name){alert('Nombre');return}if(!pin||pin.length!==4||!/^\d{4}$/.test(pin)){alert('La contraseña debe ser de 4 dígitos');return}S.children.push({id:S.nid++,name:name,age:age,emoji:S.selEmoji,customBase:null,grade:null,log:{},ext:{},paid:false,payProof:null,payDate:null,pin:pin,advances:[]});closeM('m-child');document.getElementById('nc-name').value='';document.getElementById('nc-age').value='';document.getElementById('nc-pin').value='';saveNow();renderChildren()});
 
 // ═══ ADD TASK ═══
 function buildTaskForm(){S.selDays=[];S.selChildIds=[];document.getElementById('nt-days').innerHTML=DAYS.map(function(d,i){return '<span class="dpick" data-di="'+i+'">'+d+'</span>'}).join('');var cEl=document.getElementById('nt-children');if(!S.children.length){cEl.innerHTML='<span style="font-size:12px;color:var(--red)">Agrega un hijo primero</span>';return}cEl.innerHTML=S.children.map(function(c){return '<span class="cpick" data-cpid="'+c.id+'">'+c.emoji+' '+c.name+'</span>'}).join('')}
