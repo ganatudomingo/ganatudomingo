@@ -202,7 +202,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--white);
       <div class="card"><div class="card-t">Domingo base global</div><div class="fg" style="margin:0"><label class="fl">Monto ($)</label><input class="fi" type="number" id="cfg-base" value="1000"></div></div>
       <div class="card"><div class="card-t">Factor calificaciones</div><p style="font-size:13px;color:var(--gray);margin-bottom:12px">Base = <strong style="color:var(--white)">8.0</strong></p><div class="fg" style="margin:0"><label class="fl">Promedio base</label><input class="fi" type="number" id="cfg-grade" value="8" min="0" max="10" step="0.1"></div></div>
       <div class="card"><div class="card-t">Cerrar semana</div><p style="font-size:13px;color:var(--gray);margin-bottom:12px">Archiva la semana actual en el historial y limpia tareas completadas para empezar nueva semana.</p><button class="btn btn-w btn-b" id="btn-close-week">📦 Cerrar semana actual</button></div>
-      <div class="card"><div class="card-t">💾 Memoria usada</div><div class="pbar" style="margin-bottom:6px"><div class="pfill" id="storage-bar" style="width:0%;background:var(--green)"></div></div><p style="font-size:12px;color:var(--gray)" id="storage-text">Calculando...</p></div>
+      <div class="card"><div class="card-t">💾 Memoria usada</div><div class="pbar" style="margin-bottom:6px"><div class="pfill" id="storage-bar" style="width:0%;background:var(--green)"></div></div><p style="font-size:12px;color:var(--gray);margin-bottom:12px" id="storage-text">Calculando...</p><button class="btn btn-o btn-b" id="btn-free-proofs" style="font-size:12px">🧹 Liberar comprobantes de historial</button></div>
       <div class="card"><div class="card-t">🔒 Contraseña de papás</div><div class="fg"><label class="fl">Nueva contraseña (4 dígitos)</label><input class="fi" id="cfg-parent-pin" type="password" maxlength="4" placeholder="••••" inputmode="numeric"></div><button class="btn btn-g btn-b" id="btn-save-parent-pin">Guardar contraseña</button></div>
     </div>
   </div>
@@ -309,7 +309,7 @@ var S={
   ],
   history:[], // [{weekNum,weekLabel,data:{childId:{name,emoji,earned,max,grade,paid,payProof,payDate}}}]
   nid:2,ntid:4,curChild:null,pcdChild:null,
-  selEmoji:'😊',selDays:[],selChildIds:[],pendingKey:null,filterDay:null,payTarget:null
+  selEmoji:'😊',selDays:[],selChildIds:[],pendingKey:null,filterDay:null,payTarget:null,histPayTarget:null
 };
 
 // ═══════════════════════════════════════════
@@ -665,17 +665,66 @@ function renderTasks(){
 function renderHistParent(){
   var el=document.getElementById('hist-parent');
   if(!S.history.length){el.innerHTML='<div class="empty"><div class="ei">📊</div>Sin historial aún. Cierra una semana para guardarla aquí.</div>';return}
-  el.innerHTML=S.history.slice().reverse().map(function(w){
+  var html='';
+  for(var wi=S.history.length-1;wi>=0;wi--){
+    var w=S.history[wi];
     var rows='';var childIds=Object.keys(w.data);
     childIds.forEach(function(cid){var d=w.data[cid];
-      rows+='<div class="hist-row"><div class="cav" style="width:36px;height:36px;font-size:16px">'+d.emoji+'</div><div class="hist-week"><h4>'+d.name+'</h4><p>Ganó $'+d.earned.toLocaleString()+' de $'+d.max.toLocaleString()+(d.grade!=null?' · Calif: '+d.grade:'')+'</p></div><div style="text-align:right"><div class="hist-amt">$'+d.earned.toLocaleString()+'</div><div class="hist-badge '+(d.paid?'paid':'pend')+'">'+(d.paid?'Pagado ✓':'Pendiente')+'</div></div></div>'});
-    return '<div class="card"><div class="card-t">Semana '+w.weekNum+' · '+w.weekLabel+'</div>'+rows+'</div>'}).join('');
+      rows+='<div class="hist-row"><div class="cav" style="width:36px;height:36px;font-size:16px">'+d.emoji+'</div>'+
+        '<div class="hist-week"><h4>'+d.name+'</h4><p>Ganó $'+d.earned.toLocaleString()+' de $'+d.max.toLocaleString()+(d.grade!=null?' · Calif: '+d.grade:'')+'</p>'+
+        (d.paid&&d.payProof?'<span style="font-size:11px;color:var(--green);cursor:pointer" data-histpayproof="'+wi+'_'+cid+'">📷 Ver comprobante</span>':'')+
+        '</div>'+
+        '<div style="text-align:right"><div class="hist-amt">$'+d.earned.toLocaleString()+'</div>'+
+        '<div class="hist-badge '+(d.paid?'paid':'pend')+'">'+(d.paid?'Pagado ✓':'Pendiente')+'</div>'+
+        '</div></div>';
+      // Payment action buttons for pending weeks
+      if(!d.paid){
+        rows+='<div style="display:flex;gap:8px;margin:4px 0 12px;padding-left:48px">'+
+          '<button class="btn btn-green btn-s" data-histpay="'+wi+'_'+cid+'" style="flex:1">✅ Marcar pagado</button>'+
+          '<button class="btn btn-g btn-s" data-histpayupload="'+wi+'_'+cid+'" style="flex:1">📷 Pagar + comprobante</button>'+
+          '</div>';
+      } else if(!d.payProof){
+        rows+='<div style="display:flex;gap:8px;margin:4px 0 12px;padding-left:48px">'+
+          '<button class="btn btn-o btn-s" data-histpayupload="'+wi+'_'+cid+'" style="flex:1">📷 Agregar comprobante</button>'+
+          '<button class="btn btn-d btn-s" data-histunpay="'+wi+'_'+cid+'">↩</button>'+
+          '</div>';
+      } else {
+        rows+='<div style="margin:4px 0 12px;padding-left:48px"><button class="btn btn-o btn-s btn-b" data-histunpay="'+wi+'_'+cid+'">↩ Desmarcar pago</button></div>';
+      }
+    });
+    html+='<div class="card"><div class="card-t">Semana '+w.weekNum+' · '+w.weekLabel+'</div>'+rows+'</div>';
+  }
+  el.innerHTML=html;
 }
 
 // tabs
 document.getElementById('parent-tabs').addEventListener('click',function(e){var tab=e.target.closest('.tab');if(!tab)return;var w=tab.getAttribute('data-ptab');document.querySelectorAll('#parent-tabs .tab').forEach(function(t){t.classList.remove('on')});tab.classList.add('on');
   ['hijos','tareas','historial','config'].forEach(function(t){document.getElementById('pt-'+t).style.display=t===w?'':'none'})});
 document.getElementById('children-list').addEventListener('click',function(e){var card=e.target.closest('.ccard');if(!card)return;openPChildDetail(parseInt(card.getAttribute('data-cid')))});
+
+// History payment actions
+document.getElementById('hist-parent').addEventListener('click',function(e){
+  var parse=function(attr){var p=attr.split('_');return {wi:parseInt(p[0]),cid:p[1]}};
+  // Mark paid
+  var pay=e.target.closest('[data-histpay]');
+  if(pay){var t=parse(pay.getAttribute('data-histpay'));var w=S.history[t.wi];if(w&&w.data[t.cid]){w.data[t.cid].paid=true;w.data[t.cid].payDate=new Date().toISOString();saveNow();renderHistParent();toast('✓ Marcado como pagado')}return}
+  // Pay + upload proof
+  var up=e.target.closest('[data-histpayupload]');
+  if(up){var t2=parse(up.getAttribute('data-histpayupload'));S.histPayTarget={wi:t2.wi,cid:t2.cid};document.getElementById('file-pay').click();return}
+  // Unmark
+  var un=e.target.closest('[data-histunpay]');
+  if(un){if(!confirm('¿Desmarcar el pago de esta semana?'))return;var t3=parse(un.getAttribute('data-histunpay'));var w3=S.history[t3.wi];if(w3&&w3.data[t3.cid]){w3.data[t3.cid].paid=false;w3.data[t3.cid].payProof=null;w3.data[t3.cid].payDate=null;saveNow();renderHistParent()}return}
+  // View proof
+  var vp=e.target.closest('[data-histpayproof]');
+  if(vp){var t4=parse(vp.getAttribute('data-histpayproof'));var w4=S.history[t4.wi];if(w4&&w4.data[t4.cid]&&w4.data[t4.cid].payProof){
+    document.getElementById('mv-title').textContent='💰 Comprobante · Semana '+w4.weekNum;
+    document.getElementById('mv-img').src=w4.data[t4.cid].payProof;
+    var pd=w4.data[t4.cid].payDate;
+    document.getElementById('mv-meta').textContent=pd?'Pagado el '+new Date(pd).toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'}):'';
+    document.getElementById('mv-actions').innerHTML='';
+    openM('m-viewer');
+  }return}
+});
 document.getElementById('tasks-list').addEventListener('click',function(e){var btn=e.target.closest('[data-rmtask]');if(!btn)return;S.tasks=S.tasks.filter(function(t){return t.id!==parseInt(btn.getAttribute('data-rmtask'))});save();renderTasks()});
 document.getElementById('cfg-base').addEventListener('input',function(){S.globalBase=parseFloat(this.value)||1000;save()});
 document.getElementById('cfg-grade').addEventListener('input',function(){S.baseGrade=parseFloat(this.value)||8;save()});
@@ -688,6 +737,15 @@ document.getElementById('btn-close-week').addEventListener('click',function(){
   archiveCurrentWeek(weekToArchive);
   S.weekStart=currentMonday();
   saveNow();renderParent();alert('Semana cerrada y archivada en el historial.');
+});
+
+// Free space: remove payment proof images from history (keeps paid status)
+document.getElementById('btn-free-proofs').addEventListener('click',function(){
+  var count=0;
+  S.history.forEach(function(w){for(var cid in w.data){if(w.data[cid].payProof){w.data[cid].payProof=null;count++}}});
+  if(!count){toast('No hay comprobantes de historial para liberar');return}
+  if(!confirm('¿Eliminar '+count+' comprobante(s) del historial? El estatus de pagado se conserva, solo se quitan las imágenes para liberar espacio.'))return;
+  saveNow();renderParent();toast('🧹 '+count+' comprobante(s) liberados');
 });
 
 // ═══ PARENT CHILD DETAIL ═══
@@ -816,6 +874,16 @@ document.getElementById('file-pay').addEventListener('change',function(){
   toast('Procesando comprobante...');
   compressImage(file,function(dataUrl){
     if(!dataUrl){toast('⚠ No se pudo procesar la imagen');return}
+    // History payment?
+    if(S.histPayTarget){
+      var wi=S.histPayTarget.wi,cid=S.histPayTarget.cid;
+      S.histPayTarget=null;
+      var w=S.history[wi];if(!w||!w.data[cid])return;
+      w.data[cid].paid=true;w.data[cid].payProof=dataUrl;w.data[cid].payDate=new Date().toISOString();
+      saveNowSafe(function(ok){renderHistParent();if(ok)toast('✓ Comprobante guardado')});
+      return;
+    }
+    // Normal current-week payment
     var c=S.children.find(function(x){return x.id===S.payTarget});if(!c)return;
     c.paid=true;c.payProof=dataUrl;c.payDate=new Date().toISOString();applyAutoAbono(c);
     saveNowSafe(function(ok){
@@ -1006,7 +1074,8 @@ function compressImage(file,cb){
   reader.onload=function(e){
     var img=new Image();
     img.onload=function(){
-      var maxDim=900;
+      // Evidence photos don't need high resolution — 640px is plenty to verify a task
+      var maxDim=640;
       var w=img.width,h=img.height;
       if(w>h&&w>maxDim){h=Math.round(h*maxDim/w);w=maxDim}
       else if(h>maxDim){w=Math.round(w*maxDim/h);h=maxDim}
@@ -1014,16 +1083,21 @@ function compressImage(file,cb){
       canvas.width=w;canvas.height=h;
       var ctx=canvas.getContext('2d');
       ctx.drawImage(img,0,0,w,h);
-      // Try decreasing quality until under ~700KB (safe margin under 1MB)
-      var quality=0.7,dataUrl=canvas.toDataURL('image/jpeg',quality);
-      while(dataUrl.length>700000&&quality>0.3){
-        quality-=0.1;dataUrl=canvas.toDataURL('image/jpeg',quality);
+      // Target ~80KB per photo so many fit under the 1MB Firestore limit
+      var TARGET=80000;
+      var quality=0.55,dataUrl=canvas.toDataURL('image/jpeg',quality);
+      while(dataUrl.length>TARGET&&quality>0.25){
+        quality-=0.05;dataUrl=canvas.toDataURL('image/jpeg',quality);
       }
-      // If still too big, shrink dimensions further
-      if(dataUrl.length>700000){
+      // If still too big, shrink dimensions progressively
+      var dim=maxDim;
+      while(dataUrl.length>TARGET&&dim>320){
+        dim=Math.round(dim*0.8);
+        var nw=w,nh=h;
+        if(w>h){nw=dim;nh=Math.round(h*dim/w)}else{nh=dim;nw=Math.round(w*dim/h)}
         var c2=document.createElement('canvas');
-        c2.width=Math.round(w*0.7);c2.height=Math.round(h*0.7);
-        c2.getContext('2d').drawImage(img,0,0,c2.width,c2.height);
+        c2.width=nw;c2.height=nh;
+        c2.getContext('2d').drawImage(img,0,0,nw,nh);
         dataUrl=c2.toDataURL('image/jpeg',0.5);
       }
       cb(dataUrl);
