@@ -459,8 +459,9 @@ function connectFamily(code){
       // Load server data, then check if week rolled over
       applyData(snap.data());
       var rolled=checkWeekRollover();
-      if(rolled){
-        // Push the archived week back to cloud so all devices share it
+      var purged=purgeOldPhotos()>0;
+      if(rolled||purged){
+        // Push changes back to cloud so all devices share them
         pushCloud();
       }
     }
@@ -553,6 +554,36 @@ function currentMonday(){
   var mon=new Date(n.getFullYear(),n.getMonth(),n.getDate());
   mon.setDate(mon.getDate()-((n.getDay()+6)%7));
   return mon.getFullYear()+'-'+String(mon.getMonth()+1).padStart(2,'0')+'-'+String(mon.getDate()).padStart(2,'0');
+}
+
+// Get today's date as YYYY-MM-DD (local)
+function todayStr(){
+  var n=new Date();
+  return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');
+}
+
+// Remove image data from photos taken on a PREVIOUS day.
+// Keeps done/hasPhoto=true (task stays marked as completed) but frees the heavy image.
+// Returns number of photos purged.
+function purgeOldPhotos(){
+  var today=todayStr();
+  var purged=0;
+  S.children.forEach(function(c){
+    for(var k in c.log){
+      var e=c.log[k];
+      if(e&&e.photoData&&e.photoDate){
+        var pd=new Date(e.photoDate);
+        var pdStr=pd.getFullYear()+'-'+String(pd.getMonth()+1).padStart(2,'0')+'-'+String(pd.getDate()).padStart(2,'0');
+        if(pdStr<today){
+          // Photo is from a previous day — free the image, keep completion status
+          e.photoData=null;
+          e.purged=true; // mark so UI shows "cumplido" instead of upload button
+          purged++;
+        }
+      }
+    }
+  });
+  return purged;
 }
 
 // Build a week label from a given Monday string
@@ -839,6 +870,7 @@ function renderPCTasks(c){
       (done?'✓':((isPast&&!isExt)?'✗':''))+'</div><div class="tinfo"><div class="tname '+(done?'struck':'')+'">'+t.name+extLbl+'</div><div class="tday">'+DAYS[di]+' · '+(t.type==='bonus'?'Bono':'Fija')+(t.photo?' 📷':'')+'</div></div><div class="tval '+(t.type==='bonus'?'pos':(done?'pos':((isPast&&!isExt)?'neg':'')))+'">'+
       (t.type==='bonus'?(done?'+$'+t.value:'–'):(done?'✓':((isPast&&!isExt)?'-$'+t.value:'⏳')))+'</div></div>';
     if(hasP)html+='<div style="width:100%;padding-left:40px"><div class="pzone has" data-viewkey="'+k+'" data-viewchild="'+c.id+'" data-viewname="'+t.name+'" data-viewdel="1" style="height:90px"><img src="'+entry.photoData+'" alt=""><div class="pov">🔍 · 🗑</div></div></div>';
+    else if(entry.hasPhoto&&entry.purged)html+='<div style="width:100%;padding-left:40px;font-size:12px;color:var(--green)">✅ Evidencia verificada (imagen liberada)</div>';
     else if(t.photo&&!done&&isPast&&!isExt)html+='<div style="width:100%;padding-left:40px;font-size:12px;color:var(--red)">Sin evidencia</div>';
     html+='</div>'})});
   el.innerHTML=html;
@@ -991,7 +1023,11 @@ function renderCDTasks(c){
     var chkC=complete?'done':(!isDone&&isPast&&!interact?'miss':''),chkT=complete?'✓':(!isDone&&isPast&&!interact?'✗':'');
     var extLbl=isExt?'<span class="ext-badge">🔓</span>':'';
     var photoHtml='';
-    if(t.photo){if(hasP&&entry.photoData)photoHtml='<div class="pzone has" data-cviewkey="'+k+'" data-cviewname="'+t.name+'"><img src="'+entry.photoData+'" alt=""><div class="pov">🔍</div></div>';else if(interact)photoHtml='<div class="pzone" data-uploadkey="'+k+'" data-uploadname="'+t.name+'">📷 Subir foto'+(isExt?' (reactivado)':' de hoy')+'</div>'}
+    if(t.photo){
+      if(hasP&&entry.photoData)photoHtml='<div class="pzone has" data-cviewkey="'+k+'" data-cviewname="'+t.name+'"><img src="'+entry.photoData+'" alt=""><div class="pov">🔍</div></div>';
+      else if(hasP&&entry.purged)photoHtml='<div style="margin-top:8px;font-size:12px;color:var(--green);display:flex;align-items:center;gap:6px">✅ Evidencia enviada y verificada</div>';
+      else if(interact)photoHtml='<div class="pzone" data-uploadkey="'+k+'" data-uploadname="'+t.name+'">📷 Subir foto'+(isExt?' (reactivado)':' de hoy')+'</div>';
+    }
     return '<div class="trow" style="flex-wrap:wrap"><div class="tchk '+chkC+'" '+(interact?'data-togglekey="'+k+'"':'')+'>'+chkT+'</div><div class="tinfo"><div class="tname '+(complete?'struck':'')+'">'+t.name+extLbl+'</div><div class="tday">'+DAYS[di]+(isToday?' · Hoy':(isExt?' · Reactivado':(isPast?' · Pasado':' · Próximo')))+' · '+(t.type==='bonus'?'🎁':'📌')+'</div>'+(isExt?'<div class="ext-timer">⏱ '+extRemain(c,di)+'</div>':'')+photoHtml+'</div><div class="tval '+(t.type==='bonus'?'pos':(complete?'pos':(isPast&&!interact?'neg':'')))+'">'+
       (t.type==='bonus'?(complete?'+$'+t.value:'$'+t.value):(complete?'✓':(isPast&&!interact?'-$':(interact?'⏳':'–'))))+'</div></div>'}).join('');
 }
@@ -1320,7 +1356,10 @@ try{willConnect=!!(localStorage.getItem('gtd_family')&&fbReady())}catch(e){}
 // Only do local rollover when offline. When connected, connectFamily() handles
 // rollover after loading server data (avoids double-archiving across devices).
 if(!willConnect){
-  if(checkWeekRollover()){saveLocal()}
+  var changed=false;
+  if(checkWeekRollover())changed=true;
+  if(purgeOldPhotos()>0)changed=true;
+  if(changed)saveLocal();
 }
 
 // 2. Wire connect button
