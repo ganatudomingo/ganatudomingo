@@ -270,6 +270,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--white);
   <div class="row"><button class="btn btn-o" id="abono-cancel">Cancelar</button><button class="btn btn-green" id="abono-save">Abonar</button></div>
 </div></div>
 
+<div class="mov mov-center" id="m-editamt"><div class="modal modal-pin"><div class="mhandle"></div><div class="mtitle">✏️ Corregir monto</div>
+  <p style="font-size:13px;color:var(--gray);margin-bottom:14px" id="editamt-info">Semana</p>
+  <div class="fg"><label class="fl">Monto ganado ($)</label><input class="fi" type="number" id="editamt-value" placeholder="Ej: 857" inputmode="numeric"></div>
+  <div class="row"><button class="btn btn-o" id="editamt-cancel">Cancelar</button><button class="btn btn-g" id="editamt-save">Guardar</button></div>
+</div></div>
+
 <div class="mov" id="m-viewer"><div class="modal"><div class="mhandle"></div><div class="mtitle" id="mv-title">Evidencia</div>
   <img class="photo-full" id="mv-img" src="" alt=""><p style="font-size:12px;color:var(--gray);margin-bottom:16px" id="mv-meta"></p>
   <div id="mv-actions"></div><button class="btn btn-o btn-b" id="mv-close" style="margin-top:10px">Cerrar</button>
@@ -503,13 +509,13 @@ function tasksFor(cid){return S.tasks.filter(function(t){return t.childIds.index
 function canAct(c,di){if(di===TODAY_IDX)return true;if(di>TODAY_IDX)return false;var exp=c.ext[di];if(exp&&exp>Date.now())return true;return false}
 function extRemain(c,di){var exp=c.ext[di];if(!exp)return '';var left=exp-Date.now();if(left<=0)return '';return Math.floor(left/3600000)+'h '+Math.floor((left%3600000)/60000)+'m'}
 
-function calcEarned(c){
+function calcEarned(c,finalWeek){
   var base=c.customBase!=null?c.customBase:S.globalBase,bg=S.baseGrade||8;
   var gm=(c.grade!=null&&c.grade!=='')?parseFloat(c.grade)/bg:1;
   var myT=tasksFor(c.id),fixed=myT.filter(function(t){return t.type==='fixed'}),totalFV=0;
   fixed.forEach(function(t){totalFV+=t.days.length*t.value});
   var earned=0;
-  if(totalFV>0){fixed.forEach(function(t){t.days.forEach(function(di){var k=t.id+'_'+di,e=c.log[k],done=e&&e.done&&(!t.photo||e.hasPhoto);if(done)earned+=(t.value/totalFV)*base*gm;else if(di>TODAY_IDX)earned+=(t.value/totalFV)*base*gm})})}
+  if(totalFV>0){fixed.forEach(function(t){t.days.forEach(function(di){var k=t.id+'_'+di,e=c.log[k],done=e&&e.done&&(!t.photo||e.hasPhoto);if(done)earned+=(t.value/totalFV)*base*gm;else if(!finalWeek&&di>TODAY_IDX)earned+=(t.value/totalFV)*base*gm})})}
   else earned=base*gm;
   myT.filter(function(t){return t.type==='bonus'}).forEach(function(t){t.days.forEach(function(di){var k=t.id+'_'+di,e=c.log[k];if(e&&e.done&&(!t.photo||e.hasPhoto))earned+=t.value})});
   return Math.max(0,Math.round(earned));
@@ -598,7 +604,7 @@ function labelFromMonday(monStr){
 // Archive the current week into history and reset for the new week
 function archiveCurrentWeek(prevMondayStr){
   var wk={weekNum:S.weekNum,weekLabel:prevMondayStr?labelFromMonday(prevMondayStr):weekLabel(),data:{}};
-  S.children.forEach(function(c){wk.data[c.id]={name:c.name,emoji:c.emoji,earned:calcEarned(c),max:calcMax(c),grade:c.grade,paid:c.paid,payProof:c.payProof,payDate:c.payDate}});
+  S.children.forEach(function(c){wk.data[c.id]={name:c.name,emoji:c.emoji,earned:calcEarned(c,true),max:calcMax(c),grade:c.grade,paid:c.paid,payProof:c.payProof,payDate:c.payDate}});
   S.history.push(wk);
   S.weekNum++;
   // Reset children logs/payments for the new week (advances persist)
@@ -705,7 +711,7 @@ function renderHistParent(){
         '<div class="hist-week"><h4>'+d.name+'</h4><p>Ganó $'+d.earned.toLocaleString()+' de $'+d.max.toLocaleString()+(d.grade!=null?' · Calif: '+d.grade:'')+'</p>'+
         (d.paid&&d.payProof?'<span style="font-size:11px;color:var(--green);cursor:pointer" data-histpayproof="'+wi+'_'+cid+'">📷 Ver comprobante</span>':'')+
         '</div>'+
-        '<div style="text-align:right"><div class="hist-amt">$'+d.earned.toLocaleString()+'</div>'+
+        '<div style="text-align:right"><div class="hist-amt">$'+d.earned.toLocaleString()+' <span style="cursor:pointer;font-size:13px" data-editamt="'+wi+'_'+cid+'">✏️</span></div>'+
         '<div class="hist-badge '+(d.paid?'paid':'pend')+'">'+(d.paid?'Pagado ✓':'Pendiente')+'</div>'+
         '</div></div>';
       // Payment action buttons for pending weeks
@@ -755,6 +761,27 @@ document.getElementById('hist-parent').addEventListener('click',function(e){
     document.getElementById('mv-actions').innerHTML='';
     openM('m-viewer');
   }return}
+  // Edit amount
+  var ea=e.target.closest('[data-editamt]');
+  if(ea){var t5=parse(ea.getAttribute('data-editamt'));var w5=S.history[t5.wi];if(w5&&w5.data[t5.cid]){
+    editAmtTarget={wi:t5.wi,cid:t5.cid};
+    document.getElementById('editamt-info').textContent=w5.data[t5.cid].name+' · Semana '+w5.weekNum+' ('+w5.weekLabel+')';
+    document.getElementById('editamt-value').value=w5.data[t5.cid].earned;
+    openM('m-editamt');
+  }return}
+});
+
+// Edit archived amount modal
+var editAmtTarget=null;
+document.getElementById('editamt-cancel').addEventListener('click',function(){closeM('m-editamt')});
+document.getElementById('editamt-save').addEventListener('click',function(){
+  if(!editAmtTarget)return;
+  var w=S.history[editAmtTarget.wi];if(!w||!w.data[editAmtTarget.cid])return;
+  var val=parseFloat(document.getElementById('editamt-value').value);
+  if(isNaN(val)||val<0){alert('Ingresa un monto válido');return}
+  w.data[editAmtTarget.cid].earned=Math.round(val);
+  editAmtTarget=null;
+  closeM('m-editamt');saveNow();renderHistParent();toast('✓ Monto corregido');
 });
 document.getElementById('tasks-list').addEventListener('click',function(e){var btn=e.target.closest('[data-rmtask]');if(!btn)return;S.tasks=S.tasks.filter(function(t){return t.id!==parseInt(btn.getAttribute('data-rmtask'))});save();renderTasks()});
 document.getElementById('cfg-base').addEventListener('input',function(){S.globalBase=parseFloat(this.value)||1000;save()});
